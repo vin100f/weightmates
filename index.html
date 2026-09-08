@@ -748,7 +748,7 @@ Rappel : la réserve de la semaine sert aux vrais bons moments. Si elle est à z
 
 
 /* ===================== ÉTAT ===================== */
-const VERSION = "2.1";
+const VERSION = "2.2";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1461,15 +1461,18 @@ function genMenus(silent){
 function rollMenus(){
   const ws = weekStart(todayKey());
   if(!S.menus || !S.menus.days || !S.menus.days.length){ genMenus(true); return true; }
-  if(S.menus.week === ws) return false;
-  if(S.menus.week === addDays(ws,-7)){
-    const kept = S.menus.days.filter(d=>d.d >= ws);
-    const have = new Set(kept.map(d=>d.d));
-    const fresh = makeDays(ws, PLAN_DAYS, 0).filter(d=>!have.has(d.d));
-    S.menus = {week:ws, days:kept.concat(fresh).sort((a,b)=>a.d.localeCompare(b.d)).slice(0,PLAN_DAYS)};
-    save(false); return false;
+  if(S.menus.week !== ws){
+    if(S.menus.week !== addDays(ws,-7)){ genMenus(true); return true; }
+    S.menus = {week:ws, days:S.menus.days.filter(d=>d.d >= ws)};   /* la 2e semaine devient la 1re */
   }
-  genMenus(true); return true;
+  /* complète jusqu'à PLAN_DAYS jours — sert aussi à étendre un ancien plan de 7 jours */
+  if(S.menus.days.length < PLAN_DAYS){
+    const have = new Set(S.menus.days.map(d=>d.d));
+    const fresh = makeDays(ws, PLAN_DAYS, 0).filter(d=>!have.has(d.d));
+    S.menus.days = S.menus.days.concat(fresh).sort((a,b)=>a.d.localeCompare(b.d)).slice(0,PLAN_DAYS);
+    save(false);
+  }
+  return false;
 }
 function setMenu(i,slot,id){ S.menus.days[i][slot]=id||null; save(false); renderMenus(); }
 function renderMenus(){
