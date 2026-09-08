@@ -1274,11 +1274,12 @@ function renderWeight(){
 
 /* ===================== RECETTES ===================== */
 let rfilter = "all";
+function stemWords(s){ return norm(s).split(/[^a-z0-9]+/).filter(Boolean).map(w=>w.replace(/s$/,"")); }
 function recipeOK(r,p){
-  const ex = (p.excl||[]).map(norm).filter(Boolean);
+  const ex = (p.excl||[]).map(stemWords).filter(a=>a.length);
   if(!ex.length) return true;
-  const txt = norm(r.n+" "+r.ing.map(i=>i[0]).join(" "));
-  return !ex.some(e=>txt.includes(e));
+  const words = new Set(stemWords(r.n+" "+r.ing.map(i=>i[0]).join(" ")));
+  return !ex.some(t => t.every(w => words.has(w)));
 }
 function kTab(t){
   ["recipes","menus","shop"].forEach((x,i)=>{
@@ -1500,6 +1501,8 @@ function renderProfile(){
   document.getElementById("f-act").value = p.act||1.2;
   document.getElementById("f-excl").value = (p.excl||[]).join(", ");
   document.getElementById("scripturl").value = S.settings.scriptUrl||"";
+  const si = document.getElementById("syncinfo");
+  if(si && !si.dataset.live) si.textContent = syncLabel();
   const th = S.settings.theme||"auto";
   document.querySelectorAll("#themeseg button").forEach((b,i)=>b.classList.toggle("on", ["auto","light","dark"][i]===th));
 
@@ -1589,9 +1592,17 @@ function copySummary(){ navigator.clipboard.writeText(weekSummary()).then(()=>to
 
 /* ===================== SYNC GOOGLE SHEETS ===================== */
 let syncT = null;
+function syncLabel(){
+  const t = S.settings.lastSync;
+  if(!t) return "Pas encore synchronisé.";
+  const d = new Date(t), today = keyOf(new Date()), day = keyOf(d);
+  const h = d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+  return "Dernière synchro : " + (day===today ? h : fmtShort(day)+" à "+h);
+}
 function setDot(c,info){
   document.getElementById("syncdot").className = "dot " + (c||"");
-  if(info) document.getElementById("syncinfo").textContent = info;
+  const si = document.getElementById("syncinfo");
+  if(info && si){ si.textContent = info; si.dataset.live = "1"; }
 }
 function saveScriptUrl(){ S.settings.scriptUrl = document.getElementById("scripturl").value.trim(); save(false); toast("URL enregistrée"); syncNow(true); }
 function queueSync(){ if(!S.settings.scriptUrl) return; clearTimeout(syncT); syncT = setTimeout(()=>syncNow(false), 2500); }
@@ -1605,7 +1616,7 @@ function mergeStates(a,b){
 async function syncNow(manual){
   const url = S.settings.scriptUrl;
   if(!url){ if(manual) toast("Renseigne l'URL du script"); return; }
-  setDot("busy");
+  setDot("busy", "Synchronisation en cours…");
   try{
     const g = await fetch(url+"?t="+Date.now(), {redirect:"follow"});
     const j = await g.json();
@@ -1613,7 +1624,8 @@ async function syncNow(manual){
     const r = await fetch(url, {method:"POST", redirect:"follow", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify({action:"save", state:S})});
     const k = await r.json();
     if(!k.ok) throw new Error(k.error||"réponse inattendue");
-    setDot("ok", "Dernière synchro : "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}));
+    S.settings.lastSync = Date.now(); localStorage.setItem(KEY, JSON.stringify(S));
+    setDot("ok", syncLabel());
     if(manual) toast("Synchronisé");
   }catch(e){
     setDot("err", "Synchro impossible : "+(e.message||e));
