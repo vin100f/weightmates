@@ -105,6 +105,22 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .daynav{display:flex;align-items:center;justify-content:space-between;margin-top:12px;margin-bottom:8px}
 .daynav button{width:34px;height:34px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:var(--muted);background:var(--surface);border:2.5px solid var(--line)}
 .daynav .d{font-size:14px;font-weight:900;text-transform:capitalize}
+.dwrap{display:flex;align-items:center;gap:9px;min-width:0}
+.wsep{font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:4px 0 8px;display:flex;align-items:center;gap:9px}
+.wsep:not(:first-child){margin-top:16px}
+.wsep::after{content:"";flex:1;height:2px;border-radius:2px;background:var(--line)}
+.bmi{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:11px}
+.bmi .tag{display:inline-flex;align-items:baseline;gap:5px;padding:5px 10px;border-radius:11px;font-size:12px;font-weight:900;background:var(--surface2);color:var(--ink)}
+.bmi .tag b{font-size:14px}
+.bmi .tag.n{background:var(--mint-soft);color:var(--mint-ink)}
+.bmi .tag.s{background:var(--sun-soft);color:var(--sun-ink)}
+.bmi .tag.o{background:var(--danger-soft);color:var(--danger)}
+.bmi .tag.u{background:var(--violet-soft);color:var(--violet)}
+.bmi .goal{font-size:11px;font-weight:800;color:var(--muted)}
+.bmiscale{margin-top:9px;height:7px;border-radius:99px;position:relative;background:linear-gradient(90deg,var(--violet) 0%,var(--violet) 14%,var(--mint) 14%,var(--mint) 40%,var(--sun) 40%,var(--sun) 60%,var(--danger) 60%,var(--danger) 100%)}
+.bmiscale i{position:absolute;top:-4px;width:5px;height:15px;border-radius:99px;background:var(--ink);border:2px solid var(--surface);transform:translateX(-50%)}
+.calbtn{position:relative;width:30px;height:30px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--acc);background:var(--acc-soft);border:2px solid transparent}
+.calbtn input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:0;background:none;-webkit-appearance:none;appearance:none;font-size:16px}
 .hero{background:var(--acc);color:#fff;border-radius:26px;padding:18px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
 .hero .blob{position:absolute;border-radius:50%;background:rgba(255,255,255,.10);pointer-events:none}
 .rc{position:relative;width:120px;height:120px;flex:none}
@@ -296,7 +312,13 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 <section class="view on" id="v-today">
   <div class="daynav">
     <button class="press" onclick="shiftDay(-1)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></button>
-    <div class="d" id="dayname">Aujourd'hui</div>
+    <div class="dwrap">
+      <div class="d" id="dayname">Aujourd'hui</div>
+      <span class="calbtn press" title="Choisir une date">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>
+        <input type="date" id="daypick" aria-label="Choisir une date" onchange="pickDay(this.value)">
+      </span>
+    </div>
     <button class="press" onclick="shiftDay(1)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></button>
   </div>
 
@@ -329,6 +351,7 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
   <div class="card">
     <div class="wbig"><b id="wnow">—</b><span class="muted b">kg</span><em id="wdelta"></em></div>
     <div class="small muted b" id="wsub" style="margin-top:2px"></div>
+    <div id="wbmi"></div>
     <svg class="chart" id="wchart" viewBox="0 0 320 170"></svg>
   </div>
 
@@ -361,7 +384,7 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
   </div>
 
   <div id="k-menus" style="display:none">
-    <div class="h2">Semaine du <span class="lnk" id="menuweek"></span></div>
+    <div class="h2">Quinze jours à partir du <span class="lnk" id="menuweek"></span></div>
     <div class="card">
       <div id="mdays"></div>
       <div class="grid2" style="margin-top:12px">
@@ -373,6 +396,11 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 
   <div id="k-shop" style="display:none">
     <div class="h2">Liste de courses <span><span class="lnk press" onclick="clearShop()">Tout décocher</span> &nbsp; <span class="lnk press" onclick="copyShop()">Copier</span></span></div>
+    <div class="seg" id="shopseg" style="margin-bottom:12px">
+      <button class="on" onclick="setShopScope('w1')">Semaine 1</button>
+      <button onclick="setShopScope('w2')">Semaine 2</button>
+      <button onclick="setShopScope('all')">15 jours</button>
+    </div>
     <div class="card shop" id="shop"></div>
   </div>
 </section>
@@ -464,6 +492,15 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
     <input id="impf" type="file" accept="application/json" style="display:none" onchange="importFile(this)">
     <button class="btn g sm w press" style="margin-top:9px;color:var(--danger)" onclick="resetAll()">Tout effacer sur cet appareil</button>
   </div>
+  </div>
+
+  <div class="h2">Version</div>
+  <div class="card">
+    <div class="wrow" style="border:0;padding:0">
+      <span style="flex:1" class="b">WeightMates <span id="vnum">—</span></span>
+      <button class="btn g sm press" id="vbtn" onclick="checkUpdate()">Vérifier</button>
+    </div>
+    <div class="tiny muted" id="vinfo" style="margin-top:8px;font-weight:700">Ferme et rouvre l'appli pour appliquer une mise à jour.</div>
   </div>
 </section>
 
@@ -711,9 +748,11 @@ Rappel : la réserve de la semaine sert aux vrais bons moments. Si elle est à z
 
 
 /* ===================== ÉTAT ===================== */
+const VERSION = "2.1";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
+const PLAN_DAYS = 14;
 const RESERVE_RATE = 0.7;
 const XP_LEVEL = 400;
 
@@ -931,9 +970,16 @@ function renderTop(){
 }
 
 function shiftDay(n){ const k = addDays(curDay,n); if(k > todayKey()) return; curDay = k; renderToday(); }
+function pickDay(v){
+  if(!v) return;
+  if(v > todayKey()){ toast("Pas de journée future"); document.getElementById("daypick").value = curDay; return; }
+  curDay = v; renderToday();
+}
 function renderToday(){
   const p = P(), b = p.budget;
   document.getElementById("dayname").textContent = cap(fmtDay(curDay));
+  const dpk = document.getElementById("daypick");
+  if(dpk){ dpk.value = curDay; dpk.max = todayKey(); }
   if(!b){
     document.getElementById("rin").innerHTML = "<b>?</b><span>profil à compléter</span>";
     document.getElementById("hstats").innerHTML = `<div class="small b" style="opacity:.9">Renseigne ta taille, ton poids et ton âge dans Profil : le budget se calcule tout seul.</div>`;
@@ -1224,9 +1270,24 @@ function movingAvg(ws){
     return {d:w.d, avg: sub.reduce((a,x)=>a+x.kg,0)/sub.length};
   });
 }
+function bmiOf(kg, cm){ if(!kg || !cm) return null; const m = cm/100; return kg/(m*m); }
+function bmiCat(v){ return v<18.5 ? ["Maigreur","u"] : v<25 ? ["Corpulence normale","n"] : v<30 ? ["Surpoids","s"] : ["Obésité","o"]; }
+function renderBmi(p, kg){
+  const el = document.getElementById("wbmi"); if(!el) return;
+  const v = bmiOf(kg, p.height);
+  if(!v){ el.innerHTML = `<div class="tiny muted" style="margin-top:9px;font-weight:700">Renseigne ta taille dans Profil pour voir l'IMC.</div>`; return; }
+  const c = bmiCat(v), tv = p.target ? bmiOf(p.target, p.height) : null;
+  const pos = Math.max(0, Math.min(100, (v-15)/25*100));
+  el.innerHTML = `<div class="bmi">
+      <span class="tag ${c[1]}">IMC <b>${v.toFixed(1).replace(".",",")}</b> · ${c[0]}</span>
+      ${tv ? `<span class="goal">objectif : ${tv.toFixed(1).replace(".",",")} · ${bmiCat(tv)[0].toLowerCase()}</span>` : ""}
+    </div>
+    <div class="bmiscale" aria-hidden="true"><i style="left:${pos.toFixed(1)}%"></i></div>`;
+}
 function renderWeight(){
   const p = P(), W = p.weights||[];
   document.getElementById("wdate").value = document.getElementById("wdate").value || todayKey();
+  renderBmi(p, (W.length ? W[W.length-1].kg : p.weight));
   if(!W.length){
     document.getElementById("wnow").textContent = "—";
     document.getElementById("wdelta").textContent = "";
@@ -1354,12 +1415,13 @@ function openPlan(id){
   openModal("m-plan");
 }
 function renderPlanDays(){
-  if(!S.menus) genMenus(true);
+  rollMenus();
   const t = todayKey();
   document.getElementById("plandays").innerHTML = S.menus.days.map((d,i)=>{
     const past = d.d < t;
     const lbl = d.d===t ? "Aujourd'hui" : cap(parseKey(d.d).toLocaleDateString("fr-FR",{weekday:"long"}));
-    return `<div class="pday" style="${past?"opacity:.4":""}">
+    return (i===0 ? `<div class="wsep">Semaine 1</div>` : i===7 ? `<div class="wsep">Semaine 2</div>` : "") +
+    `<div class="pday" style="${past?"opacity:.4":""}">
       <div class="d">${lbl}<small>${fmtShort(d.d)}</small></div>
       <button class="${d.dej===planId?"on":""}" onclick="setPlan(${i},'dej')">Midi</button>
       <button class="${d.din===planId?"on":""}" onclick="setPlan(${i},'din')">Soir</button>
@@ -1376,21 +1438,48 @@ function setPlan(i,slot){
 
 /* ===================== MENUS & COURSES ===================== */
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function genMenus(silent){
-  const ws = weekStart(todayKey()), p1=S.profiles.p1, p2=S.profiles.p2;
+function makeDays(ws, n, from){
+  const p1=S.profiles.p1, p2=S.profiles.p2;
   const okBoth = r => recipeOK(r,p1) && recipeOK(r,p2);
-  const din = shuffle(RECIPES.filter(r=>r.cat!=="dej" && okBoth(r)));
-  const dej = shuffle(RECIPES.filter(r=>r.cat!=="diner" && recipeOK(r,p2)));
-  S.menus = {week:ws, days:[...Array(7)].map((_,i)=>({d:addDays(ws,i), din:din[i%din.length]?.id||null, dej:dej[i%dej.length]?.id||null}))};
-  save(false); renderMenus(); if(!silent) toast("Menus de la semaine générés");
+  let din = shuffle(RECIPES.filter(r=>r.cat!=="dej" && okBoth(r)));
+  let dej = shuffle(RECIPES.filter(r=>r.cat!=="diner" && recipeOK(r,p2)));
+  if(!din.length) din = shuffle(RECIPES.filter(r=>r.cat!=="dej"));
+  if(!dej.length) dej = shuffle(RECIPES.filter(r=>r.cat!=="diner"));
+  return [...Array(n)].map((_,i)=>{
+    const dn = din.length ? din[i%din.length].id : null;
+    let dj = dej.length ? dej[i%dej.length].id : null;
+    if(dj && dj===dn && dej.length>1) dj = dej[(i+1)%dej.length].id;   /* jamais deux fois le même plat le même jour */
+    return { d: addDays(ws, (from||0)+i), din: dn, dej: dj };
+  });
+}
+function genMenus(silent){
+  const ws = weekStart(todayKey());
+  S.menus = {week:ws, days:makeDays(ws, PLAN_DAYS, 0)};
+  save(false); renderMenus(); if(!silent) toast("Menus des quinze jours générés");
+}
+/* Le lundi, on ne repart pas de zéro : la 2e semaine devient la 1re, une nouvelle 2e semaine s'ajoute. */
+function rollMenus(){
+  const ws = weekStart(todayKey());
+  if(!S.menus || !S.menus.days || !S.menus.days.length){ genMenus(true); return true; }
+  if(S.menus.week === ws) return false;
+  if(S.menus.week === addDays(ws,-7)){
+    const kept = S.menus.days.filter(d=>d.d >= ws);
+    const have = new Set(kept.map(d=>d.d));
+    const fresh = makeDays(ws, PLAN_DAYS, 0).filter(d=>!have.has(d.d));
+    S.menus = {week:ws, days:kept.concat(fresh).sort((a,b)=>a.d.localeCompare(b.d)).slice(0,PLAN_DAYS)};
+    save(false); return false;
+  }
+  genMenus(true); return true;
 }
 function setMenu(i,slot,id){ S.menus.days[i][slot]=id||null; save(false); renderMenus(); }
 function renderMenus(){
-  if(!S.menus || S.menus.week !== weekStart(todayKey())){ const old=S.menus; genMenus(true); if(old) return; }
+  if(rollMenus()) return;
   document.getElementById("menuweek").textContent = fmtShort(S.menus.week);
   const opt = (sel,cat)=>`<option value="">—</option>`+RECIPES.filter(r=>cat==="din"?r.cat!=="dej":r.cat!=="diner").map(r=>`<option value="${r.id}" ${r.id===sel?"selected":""}>${esc(r.n)}</option>`).join("");
-  document.getElementById("mdays").innerHTML = S.menus.days.map((d,i)=>`
-    <div class="mday">
+  const t = todayKey();
+  document.getElementById("mdays").innerHTML = S.menus.days.map((d,i)=>
+    (i===0 ? `<div class="wsep">Semaine 1</div>` : i===7 ? `<div class="wsep">Semaine 2</div>` : "") +
+    `<div class="mday" style="${d.d < t ? "opacity:.45" : ""}">
       <div class="dn">${parseKey(d.d).toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")}<small>${fmtShort(d.d)}</small></div>
       <div style="flex:1;min-width:0">
         <div class="slot"><span class="lb">Déj. maison</span><select onchange="setMenu(${i},'dej',this.value)">${opt(d.dej,"dej")}</select></div>
@@ -1399,10 +1488,21 @@ function renderMenus(){
     </div>`).join("");
   renderShop();
 }
+function shopScope(){ return S.shop.scope || "w1"; }
+function setShopScope(s){
+  S.shop.scope = s; save(false);
+  [...document.querySelectorAll("#shopseg button")].forEach((b,i)=>b.classList.toggle("on", ["w1","w2","all"][i]===s));
+  renderShop();
+}
+function scopeDays(){
+  if(!S.menus) return [];
+  const s = shopScope(), w2 = addDays(S.menus.week, 7);
+  return S.menus.days.filter(d => s==="all" ? true : s==="w1" ? d.d < w2 : d.d >= w2);
+}
 function shopList(){
   if(!S.menus) return [];
   const f1 = portionFactor(S.profiles.p1), f2 = portionFactor(S.profiles.p2), agg = {};
-  for(const d of S.menus.days){
+  for(const d of scopeDays()){
     const add = (id,f)=>{ const r=RECIPES.find(x=>x.id===id); if(!r) return; for(const [n,q,u] of r.ing){ const k=n+"|"+u; agg[k]=agg[k]||{n,u,q:0}; agg[k].q+=q*f; } };
     add(d.din, f1+f2); add(d.dej, f2);
   }
@@ -1410,10 +1510,13 @@ function shopList(){
 }
 function shopKey(x){ return x.n+"|"+x.u; }
 function renderShop(){
+  const mw = S.menus && S.menus.week;
+  if(S.shop.week !== mw) S.shop = {week: mw, checked:{}, scope: shopScope()};
+  const seg = document.querySelectorAll("#shopseg button");
+  if(seg.length) [...seg].forEach((b,i)=>b.classList.toggle("on", ["w1","w2","all"][i]===shopScope()));
   const L = shopList();
-  if(S.shop.week !== (S.menus && S.menus.week)){ S.shop = {week: S.menus && S.menus.week, checked:{}}; }
   if(!L.length){
-    document.getElementById("shop").innerHTML = `<div class="empty">Aucun plat programmé. Va dans Recettes, ouvre un plat et appuie sur « Programmer ce plat ».</div>`;
+    document.getElementById("shop").innerHTML = `<div class="empty">Aucun plat programmé sur cette période. Va dans Recettes, ouvre un plat et appuie sur « Programmer ce plat ».</div>`;
     return;
   }
   const done = k => !!S.shop.checked[k];
@@ -1426,16 +1529,22 @@ function renderShop(){
         <span class="box">${d?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"></path></svg>':""}</span>
         <span class="nm">${esc(x.n)}</span><span class="q">${fmtQ(x.q,x.u,1)}</span></li>`;
     }).join("")}</ul>
-    <div class="tiny muted b" style="margin-top:10px">${left} article${left>1?"s":""} à prendre. Dîners comptés pour deux, déjeuners maison pour une personne. Hors petits-déjeuners, déjeuners pris dehors et aliments libres.</div>`;
+    <div class="tiny muted b" style="margin-top:10px">${left} article${left>1?"s":""} à prendre pour ${scopeLabel()}. Dîners comptés pour deux, déjeuners maison pour une personne. Hors petits-déjeuners, déjeuners pris dehors et aliments libres.</div>`;
 }
 function toggleShop(k){
   S.shop.checked[k] = !S.shop.checked[k];
   save(false); renderShop();
 }
+function scopeLabel(){
+  const s = shopScope(), w = S.menus ? S.menus.week : todayKey();
+  if(s==="all") return "les quinze jours (du "+fmtShort(w)+" au "+fmtShort(addDays(w,PLAN_DAYS-1))+")";
+  if(s==="w2") return "la semaine du "+fmtShort(addDays(w,7));
+  return "la semaine du "+fmtShort(w);
+}
 function clearShop(){ S.shop.checked = {}; save(false); renderShop(); toast("Liste remise à zéro"); }
 function copyShop(){
   const t = shopList().filter(x=>!S.shop.checked[shopKey(x)]).map(x=>`- ${x.n} : ${fmtQ(x.q,x.u,1)}`).join("\n");
-  navigator.clipboard.writeText("Courses semaine du "+fmtShort(S.menus.week)+"\n"+t).then(()=>toast("Liste copiée"));
+  navigator.clipboard.writeText("Courses pour "+scopeLabel()+"\n"+t).then(()=>toast("Liste copiée"));
 }
 function importMenus(){
   try{
@@ -1490,6 +1599,7 @@ function saveCoach(){ S.coach = {text:document.getElementById("coachedit").value
 /* ===================== PROFIL ===================== */
 function renderProfile(){
   const p = P();
+  const vn = document.getElementById("vnum"); if(vn) vn.textContent = VERSION;
   document.getElementById("pfwho").textContent = esc(p.name);
   document.getElementById("f-name").value = p.name||"";
   document.getElementById("f-sex").value = p.sex||"m";
@@ -1561,6 +1671,26 @@ function importFile(inp){
   const r = new FileReader();
   r.onload = ()=>{ try{ const j=JSON.parse(r.result); if(!j.profiles) throw 0; S=mergeStates(S,migrate(j)); save(false); render(); toast("Import terminé"); }catch(e){ toast("Fichier invalide"); } };
   r.readAsText(f); inp.value="";
+}
+async function checkUpdate(){
+  const inf = document.getElementById("vinfo"), btn = document.getElementById("vbtn");
+  const base = location.href.split("#")[0].split("?")[0];
+  inf.textContent = "Vérification…"; btn.disabled = true;
+  try{
+    const r = await fetch(base + "?v=" + Date.now(), {cache:"no-store"});
+    if(!r.ok) throw new Error("réponse " + r.status);
+    const m = (await r.text()).match(/const VERSION = "([^"]+)"/);
+    if(!m) throw new Error("version introuvable");
+    if(m[1] === VERSION){
+      inf.textContent = "Tu es à jour — version " + VERSION + ".";
+    }else{
+      window.__newv = base + "?v=" + Date.now();
+      inf.innerHTML = `Version ${esc(m[1])} disponible. <button class="press" style="background:none;border:0;padding:0;color:var(--acc);font-weight:900;font-family:inherit;font-size:inherit" onclick="location.replace(window.__newv)">Mettre à jour maintenant</button>`;
+    }
+  }catch(e){
+    inf.textContent = "Vérification impossible : " + (e.message||e);
+  }
+  btn.disabled = false;
 }
 function resetAll(){ if(confirm("Effacer toutes les données de cet appareil ?")){ localStorage.removeItem(KEY); location.reload(); } }
 function weekSummary(){
