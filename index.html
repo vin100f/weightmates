@@ -861,6 +861,10 @@ details.fold .in{font-size:13px;font-weight:700;color:var(--muted);padding-top:6
     <div class="field"><label>Protéines g</label><input id="mr-p" type="number" inputmode="numeric"></div>
     <div class="field"><label>Fibres g</label><input id="mr-f" type="number" inputmode="numeric"></div>
   </div>
+  <div class="grid2">
+    <div class="field"><label>Sucres ajoutés g <span class="tiny muted">facultatif</span></label><input id="mr-sug" type="number" inputmode="numeric"></div>
+    <div class="field"><label>Graisses saturées g <span class="tiny muted">facultatif</span></label><input id="mr-sat" type="number" inputmode="numeric"></div>
+  </div>
   <div class="field"><label>Ingrédients — un par ligne : nom ; quantité ; unité</label><textarea id="mr-ing" rows="5" placeholder="Blanc de poulet ; 150 ; g
 Courgette ; 120 ; g
 Huile d'olive ; 1 ; c. à s."></textarea></div>
@@ -927,97 +931,217 @@ Ajouter le poulet et les épices."></textarea></div>
 <div id="confetti"></div>
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js" defer></script>
 <script>
-// [nom, catégorie, kcal/100g, protéines/100g, fibres/100g, unité, grammes par unité, libre]
+// [nom, catégorie, kcal/100g, protéines/100g, fibres/100g, unité, grammes par unité, libre, sucres/100g, graisses saturées/100g, sucres intrinsèques (fruit, légume, laitage nature) → non pénalisés]
 const FOODS = [
-// Libres (à volonté, on les compte quand même mais sans se prendre la tête)
-["Salade verte","Libres",15,1.2,1.5,"bol",80,1],["Tomate","Libres",18,0.9,1.2,"pièce",120,1],["Concombre","Libres",12,0.6,0.7,"demi",150,1],
-["Carotte","Libres",36,0.8,2.7,"pièce",100,1],["Courgette","Libres",17,1.2,1,"pièce",200,1],["Brocoli","Libres",35,3,2.6,"portion",150,1],
-["Haricots verts","Libres",30,1.9,3,"portion",150,1],["Épinards","Libres",23,2.9,2.2,"portion",150,1],["Champignons","Libres",22,3.1,1.5,"portion",100,1],
-["Poivron","Libres",26,1,2,"pièce",150,1],["Chou-fleur","Libres",25,1.9,2,"portion",150,1],["Poireau","Libres",31,1.5,1.8,"pièce",120,1],
-["Soupe de légumes maison","Libres",35,1.5,1.8,"bol",300,1],["Pomme","Libres",52,0.3,2.4,"pièce",150,1],["Poire","Libres",57,0.4,3.1,"pièce",160,1],
-["Orange","Libres",47,0.9,2.4,"pièce",180,1],["Clémentine","Libres",47,0.8,1.7,"pièce",60,1],["Fraises","Libres",32,0.7,2,"bol",150,1],
-["Framboises","Libres",52,1.2,6.5,"bol",100,1],["Kiwi","Libres",61,1.1,3,"pièce",90,1],["Pastèque / melon","Libres",30,0.6,0.4,"tranche",200,1],
-["Banane","Libres",89,1.1,2.6,"pièce",120,0],["Raisin","Libres",69,0.7,0.9,"grappe",120,0],["Œuf","Protéines",143,12.6,0,"pièce",55,1],
-["Fromage blanc 0 %","Laitages",47,8,0,"pot",100,1],["Yaourt nature","Laitages",60,4,0,"pot",125,1],["Skyr","Laitages",63,10,0,"pot",150,1],
-// Protéines
-["Blanc de poulet","Protéines",120,23,0,"filet",150,0],["Escalope de dinde","Protéines",110,24,0,"escalope",130,0],["Steak haché 5 %","Protéines",130,21,0,"steak",125,0],
-["Steak haché 15 %","Protéines",215,18,0,"steak",125,0],["Bœuf à mijoter / rôti","Protéines",150,22,0,"portion",150,0],["Porc filet mignon","Protéines",140,22,0,"portion",150,0],
-["Jambon blanc","Protéines",110,20,0,"tranche",45,0],["Jambon cru / sec","Protéines",230,27,0,"tranche",20,0],["Saucisse / merguez","Protéines",300,15,0,"pièce",90,0],
-["Saumon","Protéines",200,20,0,"pavé",130,0],["Cabillaud / colin","Protéines",80,18,0,"portion",150,0],["Thon en boîte au naturel","Protéines",110,25,0,"boîte égouttée",110,0],
-["Sardines / maquereau boîte","Protéines",200,23,0,"boîte",90,0],["Crevettes","Protéines",95,20,0,"portion",120,0],["Tofu","Protéines",120,13,1,"portion",120,0],
-["Lentilles cuites","Protéines",115,9,8,"portion",180,0],["Pois chiches cuits","Protéines",140,8,7,"portion",150,0],["Haricots rouges cuits","Protéines",115,8,7,"portion",150,0],
-// Féculents
-["Riz cuit","Féculents",130,2.7,1,"portion",150,0],["Pâtes cuites","Féculents",150,5.5,1.8,"portion",180,0],["Pâtes complètes cuites","Féculents",140,6,4.5,"portion",180,0],
-["Pommes de terre vapeur","Féculents",80,2,1.8,"portion",200,0],["Purée maison","Féculents",105,2.2,1.6,"portion",200,0],["Frites","Féculents",280,3.5,3,"portion",150,0],
-["Quinoa cuit","Féculents",120,4.4,2.8,"portion",150,0],["Semoule cuite","Féculents",115,3.7,1.5,"portion",150,0],["Patate douce cuite","Féculents",90,1.6,2.5,"portion",200,0],
-["Pain baguette","Féculents",280,8.5,3,"tranche",30,0],["Pain complet","Féculents",250,9,7,"tranche",35,0],["Pain de mie","Féculents",270,8,3,"tranche",25,0],
-["Wrap / tortilla","Féculents",300,8,3,"pièce",60,0],
-// Petit-déj
-["Flocons d'avoine","Petit-déj",370,13,10,"portion",40,0],["Muesli","Petit-déj",390,9,8,"portion",45,0],["Céréales sucrées","Petit-déj",400,7,4,"bol",40,0],
-["Biscotte","Petit-déj",390,11,4,"pièce",10,0],["Wasa fibres / pain croustillant","Petit-déj",290,10,20,"tranche",12,0],["Cracotte / craquinette","Petit-déj",380,10,6,"tranche",8,0],["Confiture","Petit-déj",250,0.3,1,"cuillère",20,0],["Miel","Petit-déj",320,0.3,0,"cuillère",15,0],
-["Pâte à tartiner","Petit-déj",540,6,3,"cuillère",20,0],["Croissant","Petit-déj",410,8,2,"pièce",55,0],["Pain au chocolat","Petit-déj",430,8,2,"pièce",65,0],
-["Lait demi-écrémé","Laitages",46,3.3,0,"verre",200,0],["Lait d'amande","Laitages",24,0.5,0.3,"verre",200,0],
-// Laitages
-["Fromage pâte dure (comté, emmental)","Laitages",390,27,0,"portion",30,0],["Camembert / brie","Laitages",300,20,0,"portion",30,0],["Chèvre","Laitages",280,18,0,"portion",30,0],
-["Feta","Laitages",260,15,0,"portion",30,0],["Mozzarella","Laitages",250,18,0,"demi-boule",60,0],["Yaourt aux fruits","Laitages",95,3.5,0.3,"pot",125,0],
-["Crème dessert","Laitages",130,3,0.3,"pot",115,0],
-// Gras & sauces
-["Huile d'olive","Gras & sauces",900,0,0,"cuillère",10,0],["Beurre","Gras & sauces",740,0.7,0,"noisette",10,0],["Crème fraîche 30 %","Gras & sauces",300,2,0,"cuillère",20,0],
-["Crème légère 15 %","Gras & sauces",170,2.5,0,"cuillère",20,0],["Mayonnaise","Gras & sauces",700,1,0,"cuillère",15,0],["Vinaigrette","Gras & sauces",400,0.3,0,"cuillère",15,0],
-["Ketchup","Gras & sauces",110,1,0.5,"cuillère",15,0],["Avocat","Gras & sauces",160,2,6.7,"demi",80,0],["Amandes / noix","Gras & sauces",600,20,10,"poignée",25,0],
-["Sauce tomate","Gras & sauces",40,1.5,1.5,"portion",100,0],["Pesto","Gras & sauces",450,5,2,"cuillère",20,0],
-// Boissons
-["Verre de vin (12 cl)","Boissons",80,0,0,"verre",120,0],["Bière (25 cl)","Boissons",42,0.4,0,"demi",250,0],["Bière (50 cl)","Boissons",42,0.4,0,"pinte",500,0],
-["Apéritif type pastis / gin tonic","Boissons",90,0,0,"verre",150,0],["Cocktail (mojito, spritz…)","Boissons",100,0,0,"verre",200,0],["Whisky / rhum sec (4 cl)","Boissons",240,0,0,"dose",40,0],
-["Soda sucré (33 cl)","Boissons",42,0,0,"canette",330,0],["Soda zéro","Boissons",0,0,0,"canette",330,1],["Jus d'orange","Boissons",45,0.7,0.2,"verre",200,0],
-["Café sucré (1 sucre)","Boissons",4,0,0,"tasse",100,0],["Café sucré (2 sucres)","Boissons",8,0,0,"tasse",100,0],["Café / thé sans sucre","Boissons",1,0,0,"tasse",100,1],
-["Café latte / cappuccino","Boissons",50,3,0,"tasse",200,0],["Eau gazeuse","Boissons",0,0,0,"verre",250,1],
-// Dehors (déjeuner au travail)
-["Sandwich jambon-beurre","Dehors",250,10,2,"pièce",180,0],["Sandwich poulet-crudités","Dehors",200,12,2.5,"pièce",200,0],["Sandwich thon-mayo","Dehors",240,11,2,"pièce",200,0],
-["Salade composée (poulet, œuf, crudités)","Dehors",120,9,2,"bol",350,0],["Salade césar","Dehors",180,10,1.5,"bol",350,0],["Poke bowl","Dehors",140,8,2.5,"bol",400,0],
-["Plat du jour type viande + féculent","Dehors",160,10,1.5,"assiette",450,0],["Plat du jour type poisson + légumes","Dehors",110,12,2,"assiette",400,0],["Burger + frites","Dehors",270,11,2,"menu",400,0],
-["Pizza (entière)","Dehors",250,11,2.5,"pizza",400,0],["Kebab","Dehors",230,14,2,"pièce",350,0],["Sushis (6 pièces)","Dehors",150,6,1,"plateau",180,0],
-["Quiche lorraine","Dehors",290,10,1,"part",150,0],["Croque-monsieur","Dehors",260,14,1.5,"pièce",180,0],["Soupe + tartine","Dehors",60,3,1.5,"bol+pain",350,0],
-["Dessert restaurant (tarte, mousse)","Dehors",320,4,1,"part",120,0],["Fruit en dessert","Dehors",50,0.5,2,"pièce",150,1],
-// Apéro & extras
-["Chips","Apéro & extras",530,6,4,"poignée",30,0],["Cacahuètes salées","Apéro & extras",600,25,8,"poignée",30,0],["Olives","Apéro & extras",150,1,3,"poignée",30,0],
-["Saucisson","Apéro & extras",410,25,0,"rondelles (5)",25,0],["Biscuits apéro / crackers","Apéro & extras",480,8,3,"poignée",30,0],["Carré de chocolat noir","Apéro & extras",540,7,10,"carré",10,0],
-["Barre chocolatée","Apéro & extras",480,5,2,"barre",50,0],["Biscuits (petit-beurre, sablé)","Apéro & extras",450,7,2,"pièce",10,0],["Gâteau / pâtisserie","Apéro & extras",380,5,1.5,"part",100,0],
-["Glace","Apéro & extras",200,3.5,0.5,"boule",70,0],["Bonbons","Apéro & extras",350,0,0,"poignée",30,0],["Compote sans sucre ajouté","Apéro & extras",55,0.3,1.5,"gourde",90,1],
-// --- v3.1 : fruits et légumes frais, et les ingrédients des nouvelles recettes ---
-// Fruits (catégorie Fruits, tous "libres" au sens de l'appli sauf les plus sucrés)
-["Mangue","Fruits",60,0.8,1.6,"pièce",200,1],["Ananas","Fruits",50,0.5,1.4,"tranche",120,1],
-["Pêche","Fruits",39,0.9,1.5,"pièce",150,1],["Nectarine","Fruits",44,1,1.7,"pièce",140,1],
-["Abricot","Fruits",48,1.4,2,"pièce",50,1],["Prune","Fruits",46,0.7,1.4,"pièce",60,1],
-["Cerises","Fruits",63,1,2.1,"bol",120,1],["Myrtilles","Fruits",57,0.7,2.4,"bol",100,1],
-["Mûres","Fruits",43,1.4,5.3,"bol",100,1],["Groseilles","Fruits",56,1.4,4.3,"bol",100,1],
-["Figue fraîche","Fruits",74,0.8,2.9,"pièce",60,1],["Litchis","Fruits",66,0.8,1.3,"bol",100,1],
-["Pamplemousse","Fruits",42,0.8,1.6,"demi",200,1],["Mandarine","Fruits",53,0.8,1.8,"pièce",70,1],
-["Citron","Fruits",29,1.1,2.8,"pièce",100,1],["Grenade","Fruits",83,1.7,4,"demi",140,1],
-["Papaye","Fruits",43,0.5,1.7,"tranche",150,1],["Melon","Fruits",34,0.8,0.9,"tranche",200,1],
-["Avocat","Fruits",160,2,6.7,"demi",100,0],["Banane plantain / séchée","Fruits",120,1.3,2.3,"pièce",80,0],
-["Fruits secs (abricots, dattes)","Fruits",280,2.5,7,"poignée",40,0],
-["Fruits au sirop égouttés","Fruits",70,0.4,1,"part",120,0],
-// Légumes frais
-["Aubergine","Libres",25,1,3,"pièce",250,1],["Betterave cuite","Libres",43,1.6,2.8,"pièce",100,1],
-["Potimarron","Libres",40,1.2,2.5,"portion",200,1],["Courge butternut","Libres",45,1,2,"portion",200,1],
-["Petits pois","Libres",81,5.4,5,"portion",120,1],["Radis","Libres",16,0.7,1.6,"botte",100,1],
-["Endive","Libres",17,1,3.1,"pièce",100,1],["Fenouil","Libres",31,1.2,3.1,"pièce",200,1],
-["Asperges","Libres",20,2.2,2.1,"botte",150,1],["Chou (blanc, rouge, frisé)","Libres",25,1.3,2.5,"portion",150,1],
-["Chou de Bruxelles","Libres",43,3.4,3.8,"portion",150,1],["Navet","Libres",28,0.9,1.8,"pièce",120,1],
-["Céleri branche","Libres",16,0.7,1.6,"branche",50,1],["Céleri-rave","Libres",42,1.5,1.8,"portion",150,1],
-["Maïs (grains)","Féculents",96,3.4,2.7,"portion",80,0],["Oignon","Libres",40,1.1,1.7,"pièce",100,1],
-["Oignon rouge","Libres",40,1.1,1.7,"pièce",100,1],["Échalote","Libres",72,2.5,3.2,"pièce",30,1],
-["Ail","Libres",149,6.4,2.1,"gousse",5,1],["Poireau","Libres",31,1.5,1.8,"pièce",120,1],
-["Blette","Libres",19,1.8,1.6,"portion",150,1],["Ratatouille maison","Libres",45,1.2,2.5,"portion",250,1],
-["Poêlée de légumes surgelés","Libres",50,2,3,"portion",200,1],
-// Ingrédients des recettes v3 qui manquaient
-["Boulgour (sec)","Féculents",350,12,8,"portion",60,0],["Semoule (sèche)","Féculents",350,12,3,"portion",60,0],
-["Chapelure","Féculents",380,13,4,"c. à s.",8,0],["Farine","Féculents",340,10,3,"c. à s.",10,0],
-["Bouillon de légumes","Libres",4,0.2,0,"bol",250,1],["Bouillon de volaille","Libres",6,0.5,0,"bol",250,1],
-["Filet de maquereau","Protéines",205,19,0,"filet",120,0],["Sardines à l'huile égouttées","Protéines",220,25,0,"boîte",70,0],
-["Graines de sésame","Gras & sauces",570,17,12,"c. à s.",9,0],["Graines de courge / tournesol","Gras & sauces",560,25,6,"c. à s.",10,0],
-["Tofu nature","Protéines",120,12,1,"portion",120,0],["Tofu fumé","Protéines",150,16,1,"portion",120,0],
+["Salade verte","Libres",15,1.2,1.5,"bol",80,1,1,0,1],
+["Tomate","Libres",18,0.9,1.2,"pièce",120,1,2.6,0,1],
+["Concombre","Libres",12,0.6,0.7,"demi",150,1,1.7,0,1],
+["Carotte","Libres",36,0.8,2.7,"pièce",100,1,5.5,0,1],
+["Courgette","Libres",17,1.2,1,"pièce",200,1,2.2,0,1],
+["Brocoli","Libres",35,3,2.6,"portion",150,1,1.7,0.1,1],
+["Haricots verts","Libres",30,1.9,3,"portion",150,1,2.3,0,1],
+["Épinards","Libres",23,2.9,2.2,"portion",150,1,0.4,0.1,1],
+["Champignons","Libres",22,3.1,1.5,"portion",100,1,1.5,0.1,1],
+["Poivron","Libres",26,1,2,"pièce",150,1,4.2,0,1],
+["Chou-fleur","Libres",25,1.9,2,"portion",150,1,2.1,0,1],
+["Poireau","Libres",31,1.5,1.8,"pièce",120,1,2.5,0.1,1],
+["Soupe de légumes maison","Libres",35,1.5,1.8,"bol",300,1,2.5,0.3,1],
+["Pomme","Libres",52,0.3,2.4,"pièce",150,1,10.4,0,1],
+["Poire","Libres",57,0.4,3.1,"pièce",160,1,9.8,0,1],
+["Orange","Libres",47,0.9,2.4,"pièce",180,1,9.2,0,1],
+["Clémentine","Libres",47,0.8,1.7,"pièce",60,1,9,0,1],
+["Fraises","Libres",32,0.7,2,"bol",150,1,4.9,0,1],
+["Framboises","Libres",52,1.2,6.5,"bol",100,1,4.4,0.1,1],
+["Kiwi","Libres",61,1.1,3,"pièce",90,1,9,0.1,1],
+["Pastèque / melon","Libres",30,0.6,0.4,"tranche",200,1,6.2,0,1],
+["Banane","Libres",89,1.1,2.6,"pièce",120,0,12.2,0.1,1],
+["Raisin","Libres",69,0.7,0.9,"grappe",120,0,16,0.1,1],
+["Œuf","Protéines",143,12.6,0,"pièce",55,1,0.3,3.1,0],
+["Fromage blanc 0 %","Laitages",47,7.8,0,"pot",100,1,4.2,0.1,1],
+["Yaourt nature","Laitages",60,4,0,"pot",125,1,4.7,1.9,1],
+["Skyr","Laitages",63,10,0,"pot",150,1,4,0.1,1],
+["Blanc de poulet","Protéines",120,23,0,"filet",150,0,0,0.4,0],
+["Escalope de dinde","Protéines",110,24,0,"escalope",130,0,0,0.3,0],
+["Steak haché 5 %","Protéines",130,21,0,"steak",125,0,0,2.2,0],
+["Steak haché 15 %","Protéines",215,18,0,"steak",125,0,0,6.5,0],
+["Bœuf à mijoter / rôti","Protéines",150,22,0,"portion",150,0,0,2.8,0],
+["Porc filet mignon","Protéines",140,22,0,"portion",150,0,0,1.8,0],
+["Jambon blanc","Protéines",110,20,0,"tranche",45,0,0.5,1.2,0],
+["Jambon cru / sec","Protéines",230,27,0,"tranche",20,0,0.5,5.5,0],
+["Saucisse / merguez","Protéines",300,15,0,"pièce",90,0,0.5,9.5,0],
+["Saumon","Protéines",200,20,0,"pavé",130,0,0,2.7,0],
+["Cabillaud / colin","Protéines",80,18,0,"portion",150,0,0,0.1,0],
+["Thon en boîte au naturel","Protéines",110,25,0,"boîte égouttée",110,0,0,0.3,0],
+["Sardines / maquereau boîte","Protéines",200,23,0,"boîte",90,0,0,2.8,0],
+["Crevettes","Protéines",95,20,0,"portion",120,0,0,0.2,0],
+["Tofu","Protéines",120,13,1,"portion",120,0,0.6,1,0],
+["Lentilles cuites","Protéines",115,9,8,"portion",180,0,1.8,0.1,1],
+["Pois chiches cuits","Protéines",140,8,7,"portion",150,0,1.5,0.3,1],
+["Haricots rouges cuits","Protéines",115,8,7,"portion",150,0,0.6,0.1,1],
+["Riz cuit","Féculents",130,2.7,1,"portion",150,0,0.1,0.1,0],
+["Pâtes cuites","Féculents",150,5.5,1.8,"portion",180,0,0.8,0.2,0],
+["Pâtes complètes cuites","Féculents",140,6,4.5,"portion",180,0,1,0.2,0],
+["Pommes de terre vapeur","Féculents",80,2,1.8,"portion",200,0,0.9,0,0],
+["Purée maison","Féculents",105,2.2,1.6,"portion",200,0,1.5,1.5,0],
+["Frites","Féculents",280,3.5,3,"portion",150,0,0.5,1.6,0],
+["Quinoa cuit","Féculents",120,4.4,2.8,"portion",150,0,0.9,0.2,0],
+["Semoule cuite","Féculents",115,3.7,1.5,"portion",150,0,0.3,0.1,0],
+["Patate douce cuite","Féculents",90,1.6,2.5,"portion",200,0,6.5,0,1],
+["Pain baguette","Féculents",280,8.5,3,"tranche",30,0,2.5,0.3,0],
+["Pain complet","Féculents",250,9,7,"tranche",35,0,2.3,0.4,0],
+["Pain de mie","Féculents",270,8,3,"tranche",25,0,4.5,1.2,0],
+["Wrap / tortilla","Féculents",300,8,3,"pièce",60,0,2,1.5,0],
+["Flocons d'avoine","Petit-déj",370,13,10,"portion",40,0,1.1,1.2,0],
+["Muesli","Petit-déj",390,9,8,"portion",45,0,15,1.5,0],
+["Céréales sucrées","Petit-déj",400,7,4,"bol",40,0,30,1.5,0],
+["Biscotte","Petit-déj",390,11,4,"pièce",10,0,5,0.7,0],
+["Wasa fibres / pain croustillant","Petit-déj",290,10,20,"tranche",12,0,1.5,0.3,0],
+["Cracotte / craquinette","Petit-déj",380,10,6,"tranche",8,0,8,0.5,0],
+["Confiture","Petit-déj",250,0.3,1,"cuillère",20,0,60,0,0],
+["Miel","Petit-déj",320,0.3,0,"cuillère",15,0,80,0,0],
+["Pâte à tartiner","Petit-déj",540,6,3,"cuillère",20,0,56,10.6,0],
+["Croissant","Petit-déj",410,8,2,"pièce",55,0,8,12,0],
+["Pain au chocolat","Petit-déj",430,8,2,"pièce",65,0,13,13,0],
+["Lait demi-écrémé","Laitages",46,3.3,0,"verre",200,0,4.8,1,1],
+["Lait d'amande","Laitages",24,0.5,0.3,"verre",200,0,2.5,0.1,1],
+["Fromage pâte dure (comté, emmental)","Laitages",390,27,0,"portion",30,0,0.5,20,0],
+["Camembert / brie","Laitages",300,20,0,"portion",30,0,0.5,15,0],
+["Chèvre","Laitages",280,18,0,"portion",30,0,1,14,0],
+["Feta","Laitages",260,15,0,"portion",30,0,1,14,0],
+["Mozzarella","Laitages",250,18,0,"demi-boule",60,0,1,11,0],
+["Yaourt aux fruits","Laitages",95,3.5,0.3,"pot",125,0,13,1.5,0],
+["Crème dessert","Laitages",130,3,0.3,"pot",115,0,17,2.5,0],
+["Huile d'olive","Gras & sauces",900,0,0,"cuillère",10,0,0,14,0],
+["Beurre","Gras & sauces",740,0.7,0,"noisette",10,0,0.6,51,0],
+["Crème fraîche 30 %","Gras & sauces",300,2,0,"cuillère",20,0,2.5,20,0],
+["Crème légère 15 %","Gras & sauces",170,2.5,0,"cuillère",20,0,3,10,0],
+["Mayonnaise","Gras & sauces",700,1,0,"cuillère",15,0,1.5,6,0],
+["Vinaigrette","Gras & sauces",400,0.3,0,"cuillère",15,0,3,6,0],
+["Ketchup","Gras & sauces",110,1,0.5,"cuillère",15,0,22,0,0],
+["Avocat","Gras & sauces",160,2,6.7,"demi",80,0,0.7,2.1,0],
+["Amandes / noix","Gras & sauces",600,20,10,"poignée",25,0,4.5,4.5,0],
+["Sauce tomate","Gras & sauces",40,1.5,1.5,"portion",100,0,4.5,0.2,0],
+["Pesto","Gras & sauces",450,5,2,"cuillère",20,0,2,7,0],
+["Verre de vin (12 cl)","Boissons",80,0,0,"verre",120,0,0.6,0,0],
+["Bière (25 cl)","Boissons",42,0.4,0,"demi",250,0,0.3,0,0],
+["Bière (50 cl)","Boissons",42,0.4,0,"pinte",500,0,0.3,0,0],
+["Apéritif type pastis / gin tonic","Boissons",90,0,0,"verre",150,0,5,0,0],
+["Cocktail (mojito, spritz…)","Boissons",100,0,0,"verre",200,0,12,0,0],
+["Whisky / rhum sec (4 cl)","Boissons",240,0,0,"dose",40,0,0,0,0],
+["Soda sucré (33 cl)","Boissons",42,0,0,"canette",330,0,10.6,0,0],
+["Soda zéro","Boissons",0,0,0,"canette",330,1,0,0,0],
+["Jus d'orange","Boissons",45,0.7,0.2,"verre",200,0,9,0,0],
+["Café sucré (1 sucre)","Boissons",4,0,0,"tasse",100,0,1,0,0],
+["Café sucré (2 sucres)","Boissons",8,0,0,"tasse",100,0,2,0,0],
+["Café / thé sans sucre","Boissons",1,0,0,"tasse",100,1,0,0,0],
+["Café latte / cappuccino","Boissons",50,3,0,"tasse",200,0,4.5,1,0],
+["Eau gazeuse","Boissons",0,0,0,"verre",250,1,0,0,0],
+["Sandwich jambon-beurre","Dehors",250,10,2,"pièce",180,0,2.5,6,0],
+["Sandwich poulet-crudités","Dehors",200,12,2.5,"pièce",200,0,3,2,0],
+["Sandwich thon-mayo","Dehors",240,11,2,"pièce",200,0,3,3,0],
+["Salade composée (poulet, œuf, crudités)","Dehors",120,9,2,"bol",350,0,3,2,0],
+["Salade césar","Dehors",180,10,1.5,"bol",350,0,2.5,4,0],
+["Poke bowl","Dehors",140,8,2.5,"bol",400,0,5,1.5,0],
+["Plat du jour type viande + féculent","Dehors",160,10,1.5,"assiette",450,0,2,3.5,0],
+["Plat du jour type poisson + légumes","Dehors",110,12,2,"assiette",400,0,2,1.5,0],
+["Burger + frites","Dehors",270,11,2,"menu",400,0,4,5,0],
+["Pizza (entière)","Dehors",250,11,2.5,"pizza",400,0,3,4,0],
+["Kebab","Dehors",230,14,2,"pièce",350,0,3,5,0],
+["Sushis (6 pièces)","Dehors",150,6,1,"plateau",180,0,5,0.5,0],
+["Quiche lorraine","Dehors",290,10,1,"part",150,0,2,9,0],
+["Croque-monsieur","Dehors",260,14,1.5,"pièce",180,0,3,7,0],
+["Soupe + tartine","Dehors",60,3,1.5,"bol+pain",350,0,2,1,0],
+["Dessert restaurant (tarte, mousse)","Dehors",320,4,1,"part",120,0,28,8,0],
+["Fruit en dessert","Dehors",50,0.5,2,"pièce",150,1,10,0,1],
+["Chips","Apéro & extras",530,6,4,"poignée",30,0,0.6,3.5,0],
+["Cacahuètes salées","Apéro & extras",600,25,8,"poignée",30,0,4.5,7,0],
+["Olives","Apéro & extras",150,1,3,"poignée",30,0,0.5,2,0],
+["Saucisson","Apéro & extras",410,25,0,"rondelles (5)",25,0,1,13,0],
+["Biscuits apéro / crackers","Apéro & extras",480,8,3,"poignée",30,0,3,8,0],
+["Carré de chocolat noir","Apéro & extras",540,7,10,"carré",10,0,30,19,0],
+["Barre chocolatée","Apéro & extras",480,5,2,"barre",50,0,50,11,0],
+["Biscuits (petit-beurre, sablé)","Apéro & extras",450,7,2,"pièce",10,0,25,7,0],
+["Gâteau / pâtisserie","Apéro & extras",380,5,1.5,"part",100,0,30,8,0],
+["Glace","Apéro & extras",200,3.5,0.5,"boule",70,0,22,6,0],
+["Bonbons","Apéro & extras",350,0,0,"poignée",30,0,65,0.2,0],
+["Compote sans sucre ajouté","Apéro & extras",55,0.3,1.5,"gourde",90,1,11,0,1],
+["Mangue","Fruits",60,0.8,1.6,"pièce",200,1,14,0.1,1],
+["Ananas","Fruits",50,0.5,1.4,"tranche",120,1,10,0,1],
+["Pêche","Fruits",39,0.9,1.5,"pièce",150,1,8.4,0,1],
+["Nectarine","Fruits",44,1,1.7,"pièce",140,1,8,0,1],
+["Abricot","Fruits",48,1.4,2,"pièce",50,1,9,0,1],
+["Prune","Fruits",46,0.7,1.4,"pièce",60,1,10,0,1],
+["Cerises","Fruits",63,1,2.1,"bol",120,1,13,0,1],
+["Myrtilles","Fruits",57,0.7,2.4,"bol",100,1,10,0,1],
+["Mûres","Fruits",43,1.4,5.3,"bol",100,1,4.9,0,1],
+["Groseilles","Fruits",56,1.4,4.3,"bol",100,1,7,0,1],
+["Figue fraîche","Fruits",74,0.8,2.9,"pièce",60,1,16,0.1,1],
+["Litchis","Fruits",66,0.8,1.3,"bol",100,1,15,0,1],
+["Pamplemousse","Fruits",42,0.8,1.6,"demi",200,1,7,0,1],
+["Mandarine","Fruits",53,0.8,1.8,"pièce",70,1,10.6,0,1],
+["Citron","Fruits",29,1.1,2.8,"pièce",100,1,2.5,0,1],
+["Grenade","Fruits",83,1.7,4,"demi",140,1,14,0.1,1],
+["Papaye","Fruits",43,0.5,1.7,"tranche",150,1,8,0,1],
+["Melon","Fruits",34,0.8,0.9,"tranche",200,1,8,0,1],
+["Banane plantain / séchée","Fruits",120,1.3,2.3,"pièce",80,0,15,0.1,0],
+["Fruits secs (abricots, dattes)","Fruits",280,2.5,7,"poignée",40,0,55,0.1,0],
+["Fruits au sirop égouttés","Fruits",70,0.4,1,"part",120,0,15,0,0],
+["Aubergine","Libres",25,1,3,"pièce",250,1,3.2,0,1],
+["Betterave cuite","Libres",43,1.6,2.8,"pièce",100,1,7,0,1],
+["Potimarron","Libres",40,1.2,2.5,"portion",200,1,4,0.1,1],
+["Courge butternut","Libres",45,1,2,"portion",200,1,4,0,1],
+["Petits pois","Libres",81,5.4,5,"portion",120,1,5.7,0.1,1],
+["Radis","Libres",16,0.7,1.6,"botte",100,1,1.9,0,1],
+["Endive","Libres",17,1,3.1,"pièce",100,1,1,0,1],
+["Fenouil","Libres",31,1.2,3.1,"pièce",200,1,2,0,1],
+["Asperges","Libres",20,2.2,2.1,"botte",150,1,1.9,0,1],
+["Chou (blanc, rouge, frisé)","Libres",25,1.3,2.5,"portion",150,1,3.2,0,1],
+["Chou de Bruxelles","Libres",43,3.4,3.8,"portion",150,1,2.2,0.1,1],
+["Navet","Libres",28,0.9,1.8,"pièce",120,1,3.8,0,1],
+["Céleri branche","Libres",16,0.7,1.6,"branche",50,1,1.3,0,1],
+["Céleri-rave","Libres",42,1.5,1.8,"portion",150,1,1.8,0.1,1],
+["Maïs (grains)","Féculents",96,3.4,2.7,"portion",80,0,3.2,0.2,1],
+["Oignon","Libres",40,1.1,1.7,"pièce",100,1,5.5,0,1],
+["Oignon rouge","Libres",40,1.1,1.7,"pièce",100,1,5.5,0,1],
+["Échalote","Libres",72,2.5,3.2,"pièce",30,1,7,0,1],
+["Ail","Libres",149,6.4,2.1,"gousse",5,1,1,0.1,1],
+["Blette","Libres",19,1.8,1.6,"portion",150,1,1.1,0,1],
+["Ratatouille maison","Libres",45,1.2,2.5,"portion",250,1,3.5,0.4,1],
+["Poêlée de légumes surgelés","Libres",50,2,3,"portion",200,1,3,0.2,1],
+["Boulgour (sec)","Féculents",350,12,8,"portion",60,0,1,0.2,0],
+["Semoule (sèche)","Féculents",350,12,3,"portion",60,0,1,0.2,0],
+["Chapelure","Féculents",380,13,4,"c. à s.",8,0,3,0.5,0],
+["Farine","Féculents",340,10,3,"c. à s.",10,0,1,0.2,0],
+["Bouillon de légumes","Libres",4,0.2,0,"bol",250,1,0.3,0,1],
+["Bouillon de volaille","Libres",6,0.5,0,"bol",250,1,0.3,0.1,1],
+["Filet de maquereau","Protéines",205,19,0,"filet",120,0,0,3.5,0],
+["Sardines à l'huile égouttées","Protéines",220,25,0,"boîte",70,0,0,3,0],
+["Graines de sésame","Gras & sauces",570,17,12,"c. à s.",9,0,0.3,7,0],
+["Graines de courge / tournesol","Gras & sauces",560,25,6,"c. à s.",10,0,2.6,5,0],
+["Tofu nature","Protéines",120,12,1,"portion",120,0,0.6,1,0],
+["Tofu fumé","Protéines",150,16,1,"portion",120,0,0.7,1.5,0],
+["Riz complet (sec)","Féculents",350,7.5,3,"portion",60,0,0.8,0.5,0],
+["Riz blanc / basmati (sec)","Féculents",350,7.5,1.4,"portion",60,0,0.2,0.2,0],
+["Pâtes (sèches)","Féculents",355,12.5,3.2,"portion",80,0,3,0.3,0],
+["Pâtes complètes (sèches)","Féculents",340,13,8,"portion",80,0,2.5,0.4,0],
+["Quinoa (sec)","Féculents",370,14,7,"portion",60,0,1.7,0.7,0],
+["Nouilles de riz (sèches)","Féculents",360,6,1.5,"portion",70,0,0.2,0.1,0],
+["Lentilles vertes (sèches)","Protéines",340,24,11,"portion",60,0,2,0.2,1],
+["Lentilles corail (sèches)","Protéines",350,24,11,"portion",60,0,2,0.3,1],
+["Pois chiches (secs)","Protéines",350,20,15,"portion",60,0,2.5,0.6,1],
+["Haricots rouges (secs)","Protéines",330,22,15,"portion",60,0,2.2,0.2,1],
+["Fromage râpé","Laitages",380,26,0,"poignée",20,0,1,19,0],
+["Parmesan","Laitages",400,36,0,"c. à s.",8,0,0.9,19,0],
+["Lait de coco léger","Gras & sauces",75,0.8,0.5,"portion",50,0,2,6,0],
+["Lait de coco entier","Gras & sauces",190,2,0.5,"portion",50,0,3,16,0],
+["Moutarde","Gras & sauces",150,7,4,"c. à c.",5,0,3,0.5,0],
+["Sauce soja","Gras & sauces",60,6,0,"c. à s.",15,0,4,0,0],
+["Huile de sésame","Gras & sauces",900,0,0,"c. à c.",5,0,0,15,0],
+["Dinde hachée","Protéines",150,20,0,"portion",130,0,0,1.5,0],
+["Bœuf à sauter (rumsteck)","Protéines",140,22,0,"portion",130,0,0,2,0],
+["Lardons de volaille","Protéines",180,18,0,"portion",50,0,0.5,3,0],
+["Tomates concassées","Libres",32,1.3,1.2,"boîte",400,1,4.5,0.1,1],
+["Vinaigrette légère","Gras & sauces",200,0.5,0,"c. à s.",15,0,4,2,0]
 ];
 
 // Activités : kcal par minute pour ~80 kg (ajusté au poids du profil)
@@ -1026,49 +1150,49 @@ const ACTS = [["Marche tranquille",4],["Marche rapide",5.5],["Vélo loisir",6],[
 // Recettes — portion de base (1 personne, ~portion "épouse") ; les portions se scalent par profil
 // ing: [nom, quantité, unité], nut: kcal / prot / fibres par portion de base, cat: 'diner' | 'dej' | 'both'
 const RECIPES = [
-{id:"r1",n:"Poulet rôti au citron, légumes du four",t:40,cat:"diner",tags:["four","reste pour le lendemain"],nut:[520,42,7],
+{id:"r1",n:"Poulet rôti au citron, légumes du four",t:40,cat:"diner",tags:["four","reste pour le lendemain"],nut:[460,41,8,11,2,1],
  ing:[["Blanc de poulet",150,"g"],["Pommes de terre",150,"g"],["Courgette",120,"g"],["Poivron",80,"g"],["Oignon",40,"g"],["Citron",0.5,"pièce"],["Huile d'olive",1,"c. à s."],["Thym, ail, sel, poivre",1,"pincée"]],
  steps:["Four à 200 °C. Couper les pommes de terre en quartiers, les légumes en gros morceaux.","Tout mélanger avec l'huile, le jus de citron, l'ail et le thym sur une plaque.","Poser le poulet dessus, enfourner 35 min en remuant à mi-cuisson."]},
-{id:"r2",n:"Saumon, lentilles corail aux épinards",t:25,cat:"diner",tags:["rapide","oméga-3"],nut:[560,40,9],
+{id:"r2",n:"Saumon, lentilles corail aux épinards",t:25,cat:"diner",tags:["rapide","oméga-3"],nut:[580,44,11,5,7.3,1],
  ing:[["Saumon",120,"g"],["Lentilles corail (sèches)",60,"g"],["Épinards",150,"g"],["Oignon",40,"g"],["Lait de coco léger",50,"ml"],["Curry",1,"c. à c."],["Huile d'olive",0.5,"c. à s."]],
  steps:["Faire revenir l'oignon, ajouter les lentilles, le curry, 200 ml d'eau et le lait de coco ; 15 min à feu doux.","Ajouter les épinards en fin de cuisson.","Poêler le saumon 3 min par face, servir sur les lentilles."]},
-{id:"r3",n:"Chili de dinde aux haricots rouges",t:35,cat:"diner",tags:["mijoté","se congèle"],nut:[540,44,13],
- ing:[["Dinde hachée",130,"g"],["Haricots rouges cuits",120,"g"],["Tomates concassées",200,"g"],["Maïs",40,"g"],["Oignon",50,"g"],["Poivron",80,"g"],["Riz complet (sec)",50,"g"],["Cumin, paprika, piment",1,"c. à c."],["Huile d'olive",0.5,"c. à s."]],
+{id:"r3",n:"Chili de dinde aux haricots rouges",t:35,cat:"diner",tags:["mijoté","se congèle"],nut:[560,37,14,17,2.9,0],
+ ing:[["Dinde hachée",110,"g"],["Haricots rouges cuits",100,"g"],["Tomates concassées",200,"g"],["Maïs",30,"g"],["Oignon",50,"g"],["Poivron",80,"g"],["Riz complet (sec)",30,"g"],["Cumin, paprika, piment",1,"c. à c."],["Huile d'olive",0.5,"c. à s."]],
  steps:["Faire revenir oignon et poivron, ajouter la dinde et les épices.","Ajouter tomates, haricots, maïs ; mijoter 20 min.","Servir avec le riz. Une cuillère de yaourt nature dessus remplace la crème."]},
-{id:"r4",n:"Wok de bœuf au brocoli",t:25,cat:"diner",tags:["rapide","wok"],nut:[510,38,6],
+{id:"r4",n:"Wok de bœuf au brocoli",t:25,cat:"diner",tags:["rapide","wok"],nut:[520,40,8,9,3.6,1],
  ing:[["Bœuf à sauter (rumsteck)",130,"g"],["Brocoli",200,"g"],["Carotte",80,"g"],["Nouilles de riz ou riz (sec)",50,"g"],["Sauce soja",1.5,"c. à s."],["Ail, gingembre",1,"c. à c."],["Huile de sésame",0.5,"c. à s."]],
  steps:["Cuire les nouilles/riz. Blanchir le brocoli 3 min.","Saisir le bœuf 2 min à feu vif, réserver.","Sauter les légumes avec ail et gingembre, remettre le bœuf, déglacer à la sauce soja."]},
-{id:"r5",n:"Omelette aux champignons, salade verte",t:15,cat:"dej",tags:["15 min","œufs"],nut:[430,28,4],
+{id:"r5",n:"Omelette aux champignons, salade verte",t:15,cat:"dej",tags:["15 min","œufs"],nut:[420,26,5,4,7.5,2],
  ing:[["Œuf",2,"pièce"],["Champignons",120,"g"],["Salade verte",80,"g"],["Pain complet",35,"g"],["Fromage râpé",15,"g"],["Huile d'olive",0.5,"c. à s."],["Vinaigrette légère",1,"c. à s."]],
  steps:["Poêler les champignons 5 min.","Verser les œufs battus, ajouter le fromage, cuire 3 min.","Servir avec la salade et une tranche de pain complet."]},
-{id:"r6",n:"Curry de pois chiches au lait de coco",t:30,cat:"diner",tags:["végétarien","se congèle"],nut:[530,19,15],
- ing:[["Pois chiches cuits",180,"g"],["Tomates concassées",150,"g"],["Épinards",100,"g"],["Lait de coco léger",100,"ml"],["Oignon",50,"g"],["Riz basmati (sec)",50,"g"],["Curry, curcuma",1,"c. à c."],["Huile d'olive",0.5,"c. à s."]],
+{id:"r6",n:"Curry de pois chiches au lait de coco",t:30,cat:"diner",tags:["végétarien","se congèle"],nut:[540,21,16,14,7.5,2],
+ ing:[["Pois chiches cuits",150,"g"],["Tomates concassées",150,"g"],["Épinards",100,"g"],["Lait de coco léger",100,"ml"],["Oignon",50,"g"],["Riz basmati (sec)",35,"g"],["Curry, curcuma",1,"c. à c."],["Huile d'olive",0.5,"c. à s."]],
  steps:["Faire revenir l'oignon et les épices.","Ajouter tomates, pois chiches, lait de coco ; 15 min à feu doux.","Ajouter les épinards, servir avec le riz."]},
-{id:"r7",n:"Cabillaud en papillote, riz et courgettes",t:30,cat:"diner",tags:["four","léger"],nut:[470,36,5],
+{id:"r7",n:"Cabillaud en papillote, riz et courgettes",t:30,cat:"diner",tags:["four","léger"],nut:[470,36,5,7,1.7,0],
  ing:[["Cabillaud / colin",160,"g"],["Courgette",150,"g"],["Tomate",100,"g"],["Riz basmati (sec)",55,"g"],["Citron",0.5,"pièce"],["Huile d'olive",1,"c. à s."],["Herbes de Provence",1,"pincée"]],
  steps:["Four à 200 °C. Poser le poisson sur du papier cuisson avec courgette en rondelles, tomate, citron, huile et herbes.","Fermer la papillote, 18 min au four.","Cuire le riz pendant ce temps."]},
-{id:"r8",n:"Bowl thon, quinoa, avocat",t:20,cat:"dej",tags:["froid","à emporter"],nut:[490,34,10],
+{id:"r8",n:"Bowl thon, quinoa, avocat",t:20,cat:"dej",tags:["froid","à emporter"],nut:[550,39,13,8,3,1],
  ing:[["Thon en boîte au naturel",110,"g"],["Quinoa (sec)",50,"g"],["Avocat",0.5,"pièce"],["Concombre",100,"g"],["Tomate",100,"g"],["Maïs",40,"g"],["Citron",0.5,"pièce"],["Huile d'olive",0.5,"c. à s."]],
  steps:["Cuire le quinoa 12 min, laisser refroidir.","Couper les légumes et l'avocat, émietter le thon.","Assembler, assaisonner citron-huile. Se prépare la veille."]},
-{id:"r9",n:"Dinde à la moutarde, purée de patate douce, haricots verts",t:35,cat:"diner",tags:["réconfort"],nut:[520,42,9],
+{id:"r9",n:"Dinde à la moutarde, purée de patate douce, haricots verts",t:35,cat:"diner",tags:["réconfort"],nut:[490,41,11,20,4.5,1],
  ing:[["Escalope de dinde",140,"g"],["Patate douce",220,"g"],["Haricots verts",150,"g"],["Moutarde",1,"c. à c."],["Crème légère 15 %",1,"c. à s."],["Beurre",5,"g"],["Échalote",30,"g"]],
  steps:["Cuire la patate douce à l'eau 20 min, écraser avec le beurre.","Poêler la dinde, déglacer avec échalote, moutarde et crème.","Haricots verts vapeur 10 min."]},
-{id:"r10",n:"Pâtes complètes, sauce tomate maison et crevettes",t:25,cat:"diner",tags:["rapide","pâtes"],nut:[540,35,10],
+{id:"r10",n:"Pâtes complètes, sauce tomate maison et crevettes",t:25,cat:"diner",tags:["rapide","pâtes"],nut:[590,41,9,13,4,2],
  ing:[["Pâtes complètes (sèches)",75,"g"],["Crevettes",120,"g"],["Tomates concassées",200,"g"],["Ail",1,"gousse"],["Oignon",40,"g"],["Huile d'olive",1,"c. à s."],["Basilic",1,"pincée"],["Parmesan",10,"g"]],
  steps:["Cuire les pâtes.","Faire revenir ail et oignon, ajouter les tomates, 10 min.","Ajouter les crevettes 3 min, mélanger aux pâtes, parmesan et basilic."]},
-{id:"r11",n:"Soupe de lentilles vertes aux lardons de volaille",t:40,cat:"both",tags:["mijoté","se congèle","grosse quantité"],nut:[450,30,14],
+{id:"r11",n:"Soupe de lentilles vertes aux lardons de volaille",t:40,cat:"both",tags:["mijoté","se congèle","grosse quantité"],nut:[520,34,15,13,2.3,1],
  ing:[["Lentilles vertes (sèches)",70,"g"],["Lardons de volaille",50,"g"],["Carotte",80,"g"],["Poireau",100,"g"],["Oignon",50,"g"],["Bouillon de volaille",400,"ml"],["Pain complet",35,"g"]],
  steps:["Faire revenir les lardons, oignon, poireau, carotte.","Ajouter lentilles et bouillon, 30 min à feu doux.","Servir avec une tranche de pain complet. Se fait en double pour les déjeuners."]},
-{id:"r12",n:"Wrap poulet-crudités sauce yaourt",t:15,cat:"dej",tags:["15 min","à emporter"],nut:[460,36,6],
+{id:"r12",n:"Wrap poulet-crudités sauce yaourt",t:15,cat:"dej",tags:["15 min","à emporter"],nut:[400,35,5,10,2.5,1],
  ing:[["Wrap / tortilla",1,"pièce"],["Blanc de poulet",110,"g"],["Salade verte",50,"g"],["Tomate",80,"g"],["Carotte râpée",50,"g"],["Yaourt nature",60,"g"],["Moutarde",1,"c. à c."],["Curry",1,"pincée"]],
  steps:["Poêler le poulet en lamelles avec le curry (ou utiliser un reste).","Mélanger yaourt, moutarde, sel.","Garnir le wrap, rouler serré."]},
-{id:"r13",n:"Gratin de courgettes au chèvre, salade",t:40,cat:"diner",tags:["four","végétarien"],nut:[480,26,7],
+{id:"r13",n:"Gratin de courgettes au chèvre, salade",t:40,cat:"diner",tags:["four","végétarien"],nut:[440,39,7,13,8.1,2],
  ing:[["Courgette",300,"g"],["Œuf",1,"pièce"],["Chèvre",40,"g"],["Fromage blanc 0 %",100,"g"],["Jambon blanc",45,"g"],["Salade verte",80,"g"],["Muscade, sel, poivre",1,"pincée"],["Pain complet",35,"g"]],
  steps:["Four à 190 °C. Courgettes en rondelles, poêlées 8 min sans gras (ou vapeur).","Mélanger œuf, fromage blanc, jambon en dés, muscade ; verser sur les courgettes, chèvre émietté dessus.","25 min au four. Servir avec salade et pain."]},
-{id:"r14",n:"Boulettes de bœuf 5 % sauce tomate, semoule complète",t:35,cat:"diner",tags:["famille","se congèle"],nut:[550,40,9],
+{id:"r14",n:"Boulettes de bœuf 5 % sauce tomate, semoule complète",t:35,cat:"diner",tags:["famille","se congèle"],nut:[510,38,6,15,3.9,1],
  ing:[["Steak haché 5 %",130,"g"],["Semoule complète (sèche)",55,"g"],["Tomates concassées",200,"g"],["Oignon",50,"g"],["Courgette",120,"g"],["Persil, cumin",1,"c. à c."],["Huile d'olive",0.5,"c. à s."]],
  steps:["Former des boulettes avec la viande, oignon haché, persil, cumin.","Les dorer, ajouter les tomates et la courgette en dés, 20 min à couvert.","Semoule à l'eau bouillante, 5 min."]},
-{id:"r15",n:"Salade de lentilles, feta et œuf mollet",t:20,cat:"dej",tags:["froid","à emporter"],nut:[480,28,12],
+{id:"r15",n:"Salade de lentilles, feta et œuf mollet",t:20,cat:"dej",tags:["froid","à emporter"],nut:[450,29,17,9,6.8,0],
  ing:[["Lentilles vertes cuites",180,"g"],["Œuf",1,"pièce"],["Feta",30,"g"],["Tomate",100,"g"],["Concombre",80,"g"],["Oignon rouge",30,"g"],["Huile d'olive",0.5,"c. à s."],["Vinaigre, moutarde",1,"c. à c."]],
  steps:["Œuf 6 min dans l'eau bouillante, refroidir, écaler.","Mélanger lentilles, légumes en dés, feta, vinaigrette.","Poser l'œuf coupé en deux. Se prépare la veille (sans l'œuf)."]},
 ];
@@ -1089,79 +1213,79 @@ Rappel : la réserve de la semaine sert aux vrais bons moments. Si elle est à z
 
 /* 25 recettes supplémentaires — v3 */
 const RECIPES_V3 = [
-{id:"r16",n:"Poêlée de poulet au paprika, poivrons et boulgour",t:30,cat:"diner",tags:["poêle","volaille"],nut:[550,45,9],
+{id:"r16",n:"Poêlée de poulet au paprika, poivrons et boulgour",t:30,cat:"diner",tags:["poêle","volaille"],nut:[550,44,9,13,2.2,1],
  ing:[["Blanc de poulet",150,"g"],["Boulgour (sec)",55,"g"],["Poivron",120,"g"],["Oignon",50,"g"],["Tomates concassées",100,"g"],["Huile d'olive",1,"c. à s."],["Paprika, ail, sel, poivre",1,"c. à c."]],
  steps:["Cuire le boulgour 10 min dans deux fois son volume d'eau bouillante salée, laisser gonfler à couvert.","Couper le poulet en lanières, le saisir 5 min à l'huile dans une grande poêle, réserver.","Faire fondre oignon et poivron 8 min, ajouter les tomates et le paprika, 5 min.","Remettre le poulet, mélanger au boulgour, poivrer."]},
-{id:"r17",n:"Cabillaud pané au four, écrasé de pommes de terre aux épinards",t:35,cat:"diner",tags:["four","poisson"],nut:[520,44,8],
+{id:"r17",n:"Cabillaud pané au four, écrasé de pommes de terre aux épinards",t:35,cat:"diner",tags:["four","poisson"],nut:[530,44,8,6,2.1,2],
  ing:[["Cabillaud / colin",180,"g"],["Chapelure",20,"g"],["Pommes de terre",200,"g"],["Épinards",120,"g"],["Lait demi-écrémé",30,"ml"],["Huile d'olive",1,"c. à s."],["Citron",0.5,"pièce"],["Ail, sel, poivre",1,"pincée"]],
  steps:["Four à 200 °C. Mélanger chapelure, zeste de citron, ail et un filet d'huile ; en recouvrir le poisson.","Enfourner 15 min sur papier cuisson.","Cuire les pommes de terre 20 min à l'eau, les écraser avec le lait.","Faire tomber les épinards 3 min à la poêle et les mélanger à l'écrasé."]},
-{id:"r18",n:"Hachis parmentier de dinde à la patate douce",t:45,cat:"diner",tags:["four","se congèle","réconfort"],nut:[510,38,10],
+{id:"r18",n:"Hachis parmentier de dinde à la patate douce",t:45,cat:"diner",tags:["four","se congèle","réconfort"],nut:[540,37,9,27,5.2,0],
  ing:[["Dinde hachée",130,"g"],["Patate douce",220,"g"],["Carotte",80,"g"],["Oignon",50,"g"],["Tomates concassées",80,"g"],["Fromage râpé",15,"g"],["Lait demi-écrémé",30,"ml"],["Thym, ail, sel, poivre",1,"pincée"]],
  steps:["Cuire la patate douce en cubes 20 min à l'eau, écraser avec le lait.","Faire revenir oignon et carotte en petits dés 8 min, ajouter la dinde et le thym, puis les tomates ; 10 min.","Répartir la viande dans un plat, couvrir de purée, parsemer de fromage.","Four à 200 °C, 15 min jusqu'à ce que le dessus soit doré."]},
-{id:"r19",n:"Œufs cocotte aux épinards et fromage frais, tartine complète",t:20,cat:"dej",tags:["œufs","végétarien","rapide"],nut:[510,35,9],
+{id:"r19",n:"Œufs cocotte aux épinards et fromage frais, tartine complète",t:20,cat:"dej",tags:["œufs","végétarien","rapide"],nut:[520,35,9,7,7.5,2],
  ing:[["Œuf",2,"pièce"],["Épinards",150,"g"],["Fromage blanc 0 %",80,"g"],["Fromage râpé",15,"g"],["Pain complet",70,"g"],["Salade verte",60,"g"],["Huile d'olive",0.5,"c. à s."],["Muscade, sel, poivre",1,"pincée"]],
  steps:["Four à 200 °C. Faire tomber les épinards 4 min à la poêle avec l'huile, égoutter.","Répartir dans deux ramequins avec le fromage blanc et la muscade, casser un œuf par ramequin, parsemer de fromage.","Enfourner 10 à 12 min : le blanc doit être pris, le jaune coulant.","Servir avec la tartine grillée et la salade."]},
-{id:"r20",n:"Salade de pois chiches, thon et poivrons grillés",t:15,cat:"dej",tags:["froid","à emporter","15 min"],nut:[490,42,15],
+{id:"r20",n:"Salade de pois chiches, thon et poivrons grillés",t:15,cat:"dej",tags:["froid","à emporter","15 min"],nut:[490,42,16,12,2.2,0],
  ing:[["Pois chiches cuits",150,"g"],["Thon en boîte au naturel",110,"g"],["Poivron",100,"g"],["Tomate",100,"g"],["Oignon rouge",30,"g"],["Huile d'olive",1,"c. à s."],["Citron",0.5,"pièce"],["Persil, cumin, sel",1,"c. à c."]],
  steps:["Griller le poivron en lanières 5 min à la poêle bien chaude, sans matière grasse.","Rincer et égoutter les pois chiches, émietter le thon.","Tout mélanger avec la tomate en dés et l'oignon émincé, assaisonner huile-citron-cumin.","Se prépare la veille, meilleure après une nuit au frais."]},
-{id:"r21",n:"Sauté de porc aux champignons, riz complet",t:30,cat:"diner",tags:["poêle","reste pour le lendemain"],nut:[550,43,5],
+{id:"r21",n:"Sauté de porc aux champignons, riz complet",t:30,cat:"diner",tags:["poêle","reste pour le lendemain"],nut:[560,43,5,6,5.9,1],
  ing:[["Porc filet mignon",150,"g"],["Champignons",150,"g"],["Riz complet (sec)",60,"g"],["Oignon",40,"g"],["Crème légère 15 %",20,"g"],["Moutarde",1,"c. à c."],["Huile d'olive",0.5,"c. à s."],["Thym, ail, sel, poivre",1,"pincée"]],
  steps:["Lancer le riz complet, 25 min à l'eau bouillante salée.","Couper le filet mignon en médaillons, les dorer 4 min par face à l'huile, réserver.","Faire suer oignon et champignons 8 min jusqu'à évaporation de l'eau.","Ajouter moutarde et crème, remettre le porc, 3 min à feu doux."]},
-{id:"r22",n:"Dahl de lentilles corail aux carottes",t:30,cat:"diner",tags:["végétarien","se congèle","mijoté"],nut:[550,23,14],
+{id:"r22",n:"Dahl de lentilles corail aux carottes",t:30,cat:"diner",tags:["végétarien","se congèle","mijoté"],nut:[540,23,14,18,4.7,1],
  ing:[["Lentilles corail (sèches)",70,"g"],["Carotte",100,"g"],["Tomates concassées",150,"g"],["Lait de coco léger",60,"ml"],["Oignon",50,"g"],["Riz basmati (sec)",30,"g"],["Huile d'olive",0.5,"c. à s."],["Curry, curcuma, ail, gingembre",1,"c. à c."]],
  steps:["Faire revenir l'oignon et les épices 3 min dans l'huile.","Ajouter les carottes en petits dés, les lentilles rincées, les tomates et 250 ml d'eau.","Mijoter 20 min à feu doux en remuant, ajouter le lait de coco en fin de cuisson.","Servir avec le riz basmati. Se congèle en portions."]},
-{id:"r23",n:"Gratin de chou-fleur au jambon",t:40,cat:"diner",tags:["four","reste pour le lendemain"],nut:[550,40,8],
+{id:"r23",n:"Gratin de chou-fleur au jambon",t:40,cat:"diner",tags:["four","reste pour le lendemain"],nut:[560,40,8,15,13.4,2],
  ing:[["Chou-fleur",300,"g"],["Jambon blanc",90,"g"],["Lait demi-écrémé",150,"ml"],["Farine",15,"g"],["Beurre",10,"g"],["Fromage râpé",30,"g"],["Pommes de terre",100,"g"],["Muscade, sel, poivre",1,"pincée"]],
  steps:["Cuire chou-fleur en bouquets et pommes de terre en cubes 12 min à l'eau bouillante, égoutter.","Faire une béchamel : beurre fondu, farine, puis le lait en fouettant 3 min, muscade.","Mélanger légumes, jambon en dés et béchamel dans un plat, couvrir de fromage.","Four à 200 °C, 20 min. Le reste se réchauffe très bien le lendemain."]},
-{id:"r24",n:"Soupe de potimarron, pois chiches grillés et feta",t:35,cat:"both",tags:["se congèle","végétarien","grosse quantité"],nut:[530,20,16],
+{id:"r24",n:"Soupe de potimarron, pois chiches grillés et feta",t:35,cat:"both",tags:["se congèle","végétarien","grosse quantité"],nut:[520,19,16,19,10.6,1],
  ing:[["Potimarron",300,"g"],["Pois chiches cuits",100,"g"],["Feta",40,"g"],["Oignon",50,"g"],["Bouillon de légumes",300,"ml"],["Lait de coco léger",50,"ml"],["Huile d'olive",1,"c. à s."],["Cumin, paprika, sel",1,"c. à c."]],
  steps:["Four à 200 °C : mélanger les pois chiches égouttés avec la moitié de l'huile et les épices, 15 min sur une plaque.","Faire suer l'oignon, ajouter le potimarron en cubes (avec la peau, lavée) et le bouillon ; 20 min.","Mixer avec le lait de coco jusqu'à obtenir un velouté lisse.","Servir avec les pois chiches croustillants et la feta émiettée."]},
-{id:"r25",n:"Aubergines farcies au bœuf et boulgour",t:45,cat:"diner",tags:["four","se congèle"],nut:[540,40,14],
+{id:"r25",n:"Aubergines farcies au bœuf et boulgour",t:45,cat:"diner",tags:["four","se congèle"],nut:[540,40,13,17,7.3,1],
  ing:[["Steak haché 5 %",120,"g"],["Aubergine",250,"g"],["Boulgour (sec)",40,"g"],["Tomates concassées",120,"g"],["Oignon",50,"g"],["Fromage râpé",20,"g"],["Huile d'olive",0.5,"c. à s."],["Persil, cumin, ail",1,"c. à c."]],
  steps:["Four à 200 °C. Couper les aubergines en deux, quadriller la chair, huiler légèrement, 20 min au four.","Cuire le boulgour 10 min. Faire revenir oignon et viande, ajouter tomates et épices, 10 min.","Évider les aubergines, mélanger la chair à la viande et au boulgour, remplir les demi-aubergines.","Parsemer de fromage, remettre 12 min au four."]},
-{id:"r26",n:"Salade de riz complet, jambon et petits pois",t:25,cat:"dej",tags:["froid","à emporter"],nut:[550,36,10],
+{id:"r26",n:"Salade de riz complet, jambon et petits pois",t:25,cat:"dej",tags:["froid","à emporter"],nut:[540,37,9,11,3.9,1],
  ing:[["Riz complet (sec)",50,"g"],["Jambon blanc",90,"g"],["Petits pois",100,"g"],["Tomate",100,"g"],["Maïs",50,"g"],["Œuf",1,"pièce"],["Huile d'olive",0.5,"c. à s."],["Vinaigre, moutarde, persil",1,"c. à c."]],
  steps:["Cuire le riz complet 25 min, l'égoutter et le rincer à l'eau froide.","Cuire l'œuf 9 min, le refroidir et l'écaler. Décongeler ou cuire les petits pois 5 min.","Mélanger riz, jambon en dés, petits pois, maïs et tomate avec la vinaigrette.","Poser l'œuf en quartiers. Se garde deux jours au frais en boîte."]},
-{id:"r27",n:"Escalope de dinde panée au parmesan, salade de tomates",t:25,cat:"diner",tags:["poêle","rapide"],nut:[490,44,5],
+{id:"r27",n:"Escalope de dinde panée au parmesan, salade de tomates",t:25,cat:"diner",tags:["poêle","rapide"],nut:[480,44,5,6,4.8,2],
  ing:[["Escalope de dinde",120,"g"],["Parmesan",15,"g"],["Chapelure",15,"g"],["Œuf",0.5,"pièce"],["Pommes de terre",150,"g"],["Tomate",150,"g"],["Huile d'olive",0.5,"c. à s."],["Basilic, vinaigre, sel, poivre",1,"c. à c."]],
  steps:["Cuire les pommes de terre en rondelles 20 min à l'eau ou à la vapeur.","Aplatir l'escalope, la passer dans l'œuf battu puis dans le mélange chapelure-parmesan.","Cuire 4 min par face à la poêle dans l'huile, à feu moyen.","Servir avec les tomates en tranches assaisonnées au basilic."]},
-{id:"r28",n:"Chakchouka aux poivrons et œufs",t:30,cat:"both",tags:["végétarien","œufs","poêle"],nut:[560,29,12],
+{id:"r28",n:"Chakchouka aux poivrons et œufs",t:30,cat:"both",tags:["végétarien","œufs","poêle"],nut:[550,28,11,22,8.7,2],
  ing:[["Œuf",2,"pièce"],["Poivron",200,"g"],["Tomates concassées",200,"g"],["Oignon",60,"g"],["Pain complet",50,"g"],["Feta",30,"g"],["Huile d'olive",0.5,"c. à s."],["Cumin, paprika, ail, sel",1,"c. à c."]],
  steps:["Faire fondre oignon et poivrons en lanières 12 min à couvert dans l'huile.","Ajouter les tomates et les épices, laisser réduire 8 min : la sauce doit être épaisse.","Creuser deux puits, y casser les œufs, couvrir et cuire 6 min à feu doux.","Parsemer de feta et servir avec le pain complet grillé."]},
-{id:"r29",n:"Maquereau grillé, écrasé de pommes de terre à la ciboulette",t:25,cat:"diner",tags:["oméga-3","poisson","rapide"],nut:[530,32,9],
+{id:"r29",n:"Maquereau grillé, écrasé de pommes de terre à la ciboulette",t:25,cat:"diner",tags:["oméga-3","poisson","rapide"],nut:[540,32,10,7,5.3,2],
  ing:[["Filet de maquereau",130,"g"],["Pommes de terre",200,"g"],["Haricots verts",150,"g"],["Citron",0.5,"pièce"],["Huile d'olive",0.5,"c. à s."],["Moutarde",1,"c. à c."],["Ciboulette, sel, poivre",1,"pincée"]],
  steps:["Cuire les pommes de terre 20 min à l'eau et les haricots verts 10 min à la vapeur au-dessus.","Écraser les pommes de terre à la fourchette avec la moutarde, la ciboulette et un filet d'huile.","Poêler les filets de maquereau côté peau 4 min, puis 2 min de l'autre côté.","Arroser de jus de citron au moment de servir."]},
-{id:"r30",n:"Tofu sauté au sésame, riz et légumes croquants",t:25,cat:"diner",tags:["végétarien","wok"],nut:[560,35,11],
+{id:"r30",n:"Tofu sauté au sésame, riz et légumes croquants",t:25,cat:"diner",tags:["végétarien","wok"],nut:[560,34,10,9,3.3,2],
  ing:[["Tofu",180,"g"],["Riz complet (sec)",50,"g"],["Brocoli",150,"g"],["Carotte",80,"g"],["Sauce soja",1.5,"c. à s."],["Huile de sésame",0.5,"c. à s."],["Graines de sésame",5,"g"],["Ail, gingembre",1,"c. à c."]],
  steps:["Lancer le riz complet, 25 min. Éponger le tofu et le couper en cubes.","Saisir le tofu 6 min à feu vif dans l'huile de sésame jusqu'à ce qu'il soit doré, réserver.","Sauter brocoli et carotte en fines lamelles 5 min avec l'ail et le gingembre : ils doivent rester croquants.","Remettre le tofu, déglacer à la sauce soja, parsemer de graines de sésame."]},
-{id:"r31",n:"Poulet basquaise, riz complet",t:40,cat:"diner",tags:["mijoté","se congèle","reste pour le lendemain"],nut:[550,44,9],
+{id:"r31",n:"Poulet basquaise, riz complet",t:40,cat:"diner",tags:["mijoté","se congèle","reste pour le lendemain"],nut:[540,43,8,19,1.8,0],
  ing:[["Blanc de poulet",150,"g"],["Poivron",150,"g"],["Tomates concassées",200,"g"],["Oignon",60,"g"],["Riz complet (sec)",55,"g"],["Huile d'olive",0.5,"c. à s."],["Piment d'Espelette, thym, ail, sel",1,"pincée"]],
  steps:["Dorer le poulet en gros morceaux 5 min dans l'huile, réserver.","Faire fondre oignon et poivrons en lanières 10 min à couvert.","Ajouter tomates, ail, thym et piment, remettre le poulet, mijoter 20 min à feu doux.","Servir avec le riz complet cuit 25 min. Meilleur réchauffé le lendemain."]},
-{id:"r32",n:"Quiche sans pâte au thon et aux poireaux",t:45,cat:"both",tags:["four","se congèle"],nut:[490,47,5],
+{id:"r32",n:"Quiche sans pâte au thon et aux poireaux",t:45,cat:"both",tags:["four","se congèle"],nut:[500,47,5,10,7.6,1],
  ing:[["Thon en boîte au naturel",80,"g"],["Poireau",200,"g"],["Œuf",2,"pièce"],["Lait demi-écrémé",80,"ml"],["Farine",25,"g"],["Fromage râpé",15,"g"],["Salade verte",60,"g"],["Muscade, sel, poivre",1,"pincée"]],
  steps:["Émincer les poireaux et les faire fondre 12 min à la poêle avec un fond d'eau.","Battre les œufs avec la farine, le lait et la muscade jusqu'à obtenir une pâte lisse.","Ajouter poireaux et thon égoutté, verser dans un moule, parsemer de fromage.","Four à 190 °C, 25 min. Se sert tiède ou froid, avec la salade."]},
-{id:"r33",n:"Croque complet jambon-fromage blanc, salade verte",t:15,cat:"dej",tags:["15 min","réconfort"],nut:[470,38,8],
+{id:"r33",n:"Croque complet jambon-fromage blanc, salade verte",t:15,cat:"dej",tags:["15 min","réconfort"],nut:[470,37,7,8,6.9,2],
  ing:[["Pain complet",70,"g"],["Jambon blanc",90,"g"],["Fromage blanc 0 %",60,"g"],["Fromage râpé",25,"g"],["Salade verte",80,"g"],["Tomate",100,"g"],["Huile d'olive",0.5,"c. à s."],["Vinaigre, moutarde, muscade",1,"c. à c."]],
  steps:["Mélanger le fromage blanc avec la moutarde et la muscade, en tartiner les tranches de pain.","Garnir de jambon et de fromage râpé, refermer.","Cuire 4 min par face à la poêle à feu moyen, en pressant avec une spatule.","Servir avec la salade et les tomates assaisonnées."]},
-{id:"r34",n:"Salade de quinoa, poulet et crudités",t:25,cat:"dej",tags:["froid","à emporter"],nut:[560,42,8],
+{id:"r34",n:"Salade de quinoa, poulet et crudités",t:25,cat:"dej",tags:["froid","à emporter"],nut:[560,42,8,10,6.4,1],
  ing:[["Quinoa (sec)",50,"g"],["Blanc de poulet",120,"g"],["Concombre",100,"g"],["Tomate",100,"g"],["Poivron",80,"g"],["Feta",30,"g"],["Huile d'olive",1,"c. à s."],["Citron",0.5,"pièce"],["Menthe, persil, sel",1,"c. à c."]],
  steps:["Cuire le quinoa 12 min à l'eau bouillante salée, égoutter et laisser refroidir.","Poêler le poulet 8 min en lanières (ou récupérer un reste), laisser tiédir.","Couper concombre, tomate et poivron en petits dés.","Mélanger le tout avec la feta, l'huile, le citron et les herbes. Se prépare la veille."]},
-{id:"r35",n:"Curry de crevettes aux légumes, riz basmati",t:25,cat:"diner",tags:["rapide","épicé"],nut:[520,38,6],
+{id:"r35",n:"Curry de crevettes aux légumes, riz basmati",t:25,cat:"diner",tags:["rapide","épicé"],nut:[520,39,7,13,5.9,2],
  ing:[["Crevettes",150,"g"],["Riz basmati (sec)",55,"g"],["Courgette",150,"g"],["Poivron",100,"g"],["Lait de coco léger",80,"ml"],["Oignon",40,"g"],["Huile d'olive",0.5,"c. à s."],["Citron",0.5,"pièce"],["Curry, curcuma, gingembre",1,"c. à c."]],
  steps:["Cuire le riz basmati 11 min.","Faire revenir oignon, courgette et poivron en dés 8 min avec les épices.","Ajouter le lait de coco, laisser réduire 5 min.","Ajouter les crevettes 3 min, juste le temps qu'elles rosissent, finir au jus de citron."]},
-{id:"r36",n:"Blanquette de dinde express aux champignons, riz",t:40,cat:"diner",tags:["mijoté","réconfort","reste pour le lendemain"],nut:[470,43,9],
+{id:"r36",n:"Blanquette de dinde express aux champignons, riz",t:40,cat:"diner",tags:["mijoté","réconfort","reste pour le lendemain"],nut:[480,44,10,13,3.1,1],
  ing:[["Escalope de dinde",130,"g"],["Champignons",150,"g"],["Carotte",100,"g"],["Poireau",100,"g"],["Riz complet (sec)",50,"g"],["Crème légère 15 %",20,"g"],["Bouillon de volaille",200,"ml"],["Citron",0.5,"pièce"],["Thym, laurier, sel, poivre",1,"pincée"]],
  steps:["Couper la dinde en cubes, la faire blanchir 2 min dans le bouillon avec le thym et le laurier.","Ajouter carotte en rondelles et poireau émincé, mijoter 20 min à couvert.","Ajouter les champignons 8 min, puis la crème et le jus de citron hors du feu.","Servir avec le riz complet. Le lendemain, c'est encore meilleur."]},
-{id:"r37",n:"Galettes de pois chiches, sauce yaourt et salade",t:30,cat:"diner",tags:["végétarien","poêle","se congèle"],nut:[530,28,16],
+{id:"r37",n:"Galettes de pois chiches, sauce yaourt et salade",t:30,cat:"diner",tags:["végétarien","poêle","se congèle"],nut:[520,28,16,12,4.5,0],
  ing:[["Pois chiches cuits",170,"g"],["Œuf",1,"pièce"],["Farine",20,"g"],["Oignon",40,"g"],["Yaourt nature",80,"g"],["Salade verte",80,"g"],["Tomate",100,"g"],["Huile d'olive",0.5,"c. à s."],["Cumin, paprika, ail, sel",1,"c. à c."]],
  steps:["Écraser les pois chiches égouttés à la fourchette avec l'oignon râpé, l'œuf, la farine et les épices.","Former 4 galettes, les laisser reposer 5 min.","Cuire 5 min par face à la poêle dans l'huile, à feu moyen.","Servir avec le yaourt salé-citronné et la salade de tomates. Les galettes crues se congèlent."]},
-{id:"r38",n:"Pâtes complètes au thon, courgettes et citron",t:20,cat:"dej",tags:["pâtes","rapide"],nut:[540,42,8],
+{id:"r38",n:"Pâtes complètes au thon, courgettes et citron",t:20,cat:"dej",tags:["pâtes","rapide"],nut:[540,43,9,6,3.9,2],
  ing:[["Pâtes complètes (sèches)",70,"g"],["Thon en boîte au naturel",110,"g"],["Courgette",150,"g"],["Ail",1,"gousse"],["Citron",0.5,"pièce"],["Huile d'olive",1,"c. à s."],["Parmesan",10,"g"],["Basilic, sel, poivre",1,"pincée"]],
  steps:["Cuire les pâtes complètes 10 min.","Râper la courgette et la faire sauter 6 min avec l'ail écrasé dans l'huile.","Ajouter le thon égoutté, le zeste et le jus de citron, hors du feu.","Mélanger aux pâtes avec un peu d'eau de cuisson et le parmesan."]},
-{id:"r39",n:"Tartines de sardines, salade de betterave et pomme",t:15,cat:"dej",tags:["oméga-3","froid","15 min"],nut:[540,33,11],
+{id:"r39",n:"Tartines de sardines, salade de betterave et pomme",t:15,cat:"dej",tags:["oméga-3","froid","15 min"],nut:[540,33,12,24,3.5,2],
  ing:[["Sardines / maquereau boîte",90,"g"],["Pain complet",70,"g"],["Betterave cuite",150,"g"],["Pomme",100,"g"],["Fromage blanc 0 %",40,"g"],["Huile d'olive",0.5,"c. à s."],["Vinaigre, moutarde, ciboulette",1,"c. à c."]],
  steps:["Griller les tranches de pain complet.","Écraser les sardines égouttées avec le fromage blanc, la moutarde et la ciboulette, tartiner.","Couper betterave et pomme en dés, assaisonner huile-vinaigre.","Servir aussitôt, ou emporter la salade à part pour que le pain reste croustillant."]},
-{id:"r40",n:"Filet mignon de porc au four, pommes de terre et carottes",t:45,cat:"diner",tags:["four","reste pour le lendemain"],nut:[520,39,8],
+{id:"r40",n:"Filet mignon de porc au four, pommes de terre et carottes",t:45,cat:"diner",tags:["four","reste pour le lendemain"],nut:[520,39,8,11,4.2,2],
  ing:[["Porc filet mignon",150,"g"],["Pommes de terre",180,"g"],["Carotte",120,"g"],["Oignon",50,"g"],["Bouillon de volaille",100,"ml"],["Moutarde",1,"c. à c."],["Huile d'olive",1,"c. à s."],["Thym, ail, sel, poivre",1,"pincée"]],
  steps:["Four à 200 °C. Couper pommes de terre et carottes en quartiers, les mélanger à l'huile, au thym et à l'ail sur une plaque.","Badigeonner le filet mignon de moutarde, le poser sur les légumes avec l'oignon émincé.","Verser le bouillon dans le plat et enfourner 35 min, en arrosant à mi-cuisson.","Laisser reposer 5 min avant de trancher. Les restes se mangent froids en salade."]},
 ];
@@ -1171,7 +1295,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "3.1";
+const VERSION = "3.2";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1218,6 +1342,11 @@ function migrate(s){
     p.recents = p.recents || {};            /* clé d'aliment -> {n,e,c,q,last} */
     p.favs = p.favs || [];
     if(p.act === undefined || p.act === null) p.act = 1.2;
+    /* v3.2 : les budgets d'avant n'ont pas de repère sucres ni saturées */
+    if(p.budget && p.budget.sug == null){
+      p.budget.sug = Math.round(p.budget.kcal*0.12/4);
+      p.budget.sat = Math.round(p.budget.kcal*0.10/9);
+    }
     for(const k in p.days){
       const d = p.days[k];
       d.meals = d.meals || {pdj:[],dej:[],din:[],ext:[]};
@@ -1322,17 +1451,18 @@ function qualityOf(e){
                                prot: e.prot/e.g*100, fib: e.fib/e.g*100} : null);
   if(per && per.sug != null && per.sat != null){
     let pts = 0;
-    pts += per.sug > 22.5 ? 2 : per.sug > 5 ? 1 : 0;
+    const sug = per.sugf != null ? per.sugf : (e.nat ? 0 : per.sug);   /* on ne pénalise que les sucres libres */
+    pts += sug > 22.5 ? 2 : sug > 5 ? 1 : 0;
     pts += per.sat > 5 ? 2 : per.sat > 1.5 ? 1 : 0;
     if((per.prot||0) > 12) pts -= 1;
     if((per.fib||0) > 6) pts -= 1;
     /* les protéines ne rachètent pas tout : un fromage très gras reste au moins « moyen » */
-    if(per.sat > 5 || per.sug > 22.5) pts = Math.max(pts, 2);
+    if(per.sat > 5 || sug > 22.5) pts = Math.max(pts, 2);
     return pts <= 0 ? {c:"q1", t:"bon"} : pts === 1 ? {c:"q2", t:"correct"} : pts === 2 ? {c:"q3", t:"moyen"} : {c:"q4", t:"riche"};
   }
   /* 3. À défaut — notre base maison, qui n'a ni sucres ni graisses saturées —
         la densité de points. Plus grossier, et c'est assumé. */
-  const dens = ptsOf(kcal, e.prot||0, e.fib||0) / (kcal/100);
+  const dens = ptsOf(kcal, e.prot||0, e.fib||0, e.sug, e.sat) / (kcal/100);
   return dens < 1.1 ? {c:"q1", t:"bon"} : dens < 1.45 ? {c:"q2", t:"correct"} : dens < 1.7 ? {c:"q3", t:"moyen"} : {c:"q4", t:"riche"};
 }
 function qDot(e){ const q = qualityOf(e); return `<i class="qd ${q.c}" title="${q.t}"></i>`; }
@@ -1361,7 +1491,12 @@ function calcBudget(p){
   const prot = Math.round(1.6 * Math.min(p.weight, p.target || p.weight));
   const fib = p.sex==="m" ? 30 : 25;
   const reserve = Math.round(kcal*RESERVE_RATE/50)*50;
-  return {kcal, prot, fib, reserve, tdee:Math.round(tdee)};
+  /* Repères officiels : les sucres totaux au plus 12 % de l'énergie, les graisses
+     saturées au plus 10 %. Ce ne sont pas des limites à ne pas franchir, ce sont
+     les valeurs qui servent à étalonner le repère en points. */
+  const sug = Math.round(kcal*0.12/4);
+  const sat = Math.round(kcal*0.10/9);
+  return {kcal, prot, fib, sug, sat, reserve, tdee:Math.round(tdee)};
 }
 function portionFactor(p){ if(!p.budget) return 1; return Math.min(1.45, Math.max(0.85, (p.budget.kcal*0.36)/520)); }
 function dayOf(p,k){ return p.days[k] || blankDay(); }
@@ -1375,11 +1510,24 @@ function dayTotals(p,k){
   const act = (d.acts||[]).reduce((a,x)=>a+x.kcal,0);
   return {kcal:Math.round(kcal),prot:Math.round(prot),fib:Math.round(fib),act:Math.round(act),n};
 }
-function ptsOf(kcal,prot,fib){ return Math.max(0, kcal/50 - prot/10 - fib/12); }
-function entryPts(e){ return ptsOf(e.kcal,e.prot,e.fib); }
+/* ---------- les points, v3.2 ----------
+   Depuis que la base porte les sucres et les graisses saturées, les points peuvent
+   enfin dire ce qu'ils prétendent dire : le coût d'un aliment, calories ET qualité.
+   Pénalise les calories, les sucres et les saturées ; crédite protéines et fibres.
+   Étalonné pour qu'une journée pile sur ses objectifs tombe sur son repère. */
+function ptsOf(kcal, prot, fib, sug, sat){
+  return Math.max(0, (kcal||0)/50 + (sug||0)/20 + (sat||0)/8 - (prot||0)/10 - (fib||0)/12);
+}
+function freeSug(e){ return e.sugf != null ? e.sugf : (e.nat ? 0 : (e.sug||0)); }
+function entryPts(e){ return ptsOf(e.kcal, e.prot, e.fib, freeSug(e), e.sat); }
 function mealPts(p,k,m){ return (dayOf(p,k).meals[m]||[]).reduce((a,e)=>a+entryPts(e),0); }
+function dayNutri(p,k){
+  const d = dayOf(p,k); let sug=0, sat=0;
+  for(const m of Object.values(d.meals||{})) for(const e of m){ sug += freeSug(e); sat += e.sat||0; }
+  return {sug, sat};
+}
 function dayPts(p,k){ const d=dayOf(p,k); let s=0; for(const m of Object.values(d.meals||{})) for(const e of m) s+=entryPts(e); return s; }
-function budgetPts(b){ return Math.max(1, Math.round(ptsOf(b.kcal,b.prot,b.fib))); }
+function budgetPts(b){ return Math.max(1, Math.round(ptsOf(b.kcal, b.prot, b.fib, b.sug, b.sat))); }
 function fmtP(v){ return (Math.round(v*10)/10).toString().replace(".",","); }
 function mealTotal(p,k,m){ return Math.round((dayOf(p,k).meals[m]||[]).reduce((a,e)=>a+e.kcal,0)); }
 function reserveState(p,k){
@@ -1665,22 +1813,24 @@ function repeatActivity(){
 function renderPtsNote(p, b, t, left, dp, bp){
   const el = document.getElementById("ptsnote"); if(!el) return;
   if(t.n === 0){ el.innerHTML = ""; return; }
-  const protShort = t.prot < b.prot * 0.75, fibShort = t.fib < b.fib * 0.75;
+  const dd = dayNutri(p, curDay);
   if(dp > bp && left >= 0){
-    const manque = [];
-    if(protShort) manque.push(`des protéines (${t.prot} g sur ${b.prot})`);
-    if(fibShort) manque.push(`des fibres (${t.fib} g sur ${b.fib})`);
+    const causes = [];
+    if(dd.sug > b.sug) causes.push(`trop de sucres (${Math.round(dd.sug)} g pour un repère de ${b.sug})`);
+    if(dd.sat > b.sat) causes.push(`trop de graisses saturées (${Math.round(dd.sat)} g pour ${b.sat})`);
+    if(t.prot < b.prot*0.75) causes.push(`pas assez de protéines (${t.prot} g sur ${b.prot})`);
+    if(t.fib < b.fib*0.75) causes.push(`pas assez de fibres (${t.fib} g sur ${b.fib})`);
     el.innerHTML = `<div class="ptsnote">
       <b>Il te reste ${num(left)} kcal, et pourtant tes points dépassent.</b>
-      <span>Ce n'est pas une erreur : les points ne comptent pas que les calories, ils tiennent compte de la qualité. Le repère de ${bp} points suppose une journée qui atteint ses objectifs de protéines et de fibres.${manque.length?` Aujourd'hui il te manque ${manque.join(" et ")}, donc les mêmes calories coûtent plus cher.`:""}</span>
-      <span><b>Ce que ça veut dire :</b> tu peux encore manger, mais choisis plutôt du protéiné ou du fibreux — un yaourt nature, des œufs, un fruit, des légumes — plutôt que du sucré ou du gras.</span>
+      <span>Ce n'est pas une erreur : les points comptent les calories <em>et</em> la qualité. ${causes.length?`Aujourd'hui : ${causes.join(", ")}.`:`Le repère de ${bp} points suppose une journée équilibrée.`}</span>
+      <span><b>Ce que ça veut dire :</b> tu peux encore manger, mais choisis du protéiné ou du fibreux — un yaourt nature, des œufs, un fruit, des légumes — plutôt que du sucré ou du gras.</span>
     </div>`;
     return;
   }
   if(dp <= bp && left < 0){
     el.innerHTML = `<div class="ptsnote ok">
       <b>Tu dépasses en calories, mais pas en points.</b>
-      <span>C'est le bon signe : ce que tu as mangé était de bonne qualité — assez de protéines et de fibres. Le dépassement se prend sur la réserve de la semaine.</span>
+      <span>C'est le bon signe : ce que tu as mangé était de bonne qualité — ${Math.round(dd.sug)} g de sucres et ${Math.round(dd.sat)} g de saturées, contre ${b.sug} et ${b.sat} en repère. Le dépassement se prend sur la réserve de la semaine.</span>
     </div>`;
     return;
   }
@@ -1843,7 +1993,7 @@ function renderSearch(q){
 function foodRows(arr){
   return arr.map(f=>{
     const i = FOODS.indexOf(f);
-    const e = {kcal:f[2], prot:f[3], fib:f[4]};
+    const e = {kcal:f[2], prot:f[3], fib:f[4], nat:f[10], per:{prot:f[3], fib:f[4], sug:f[8], sat:f[9]}};
     return `<button class="fl press ${f[7]?"free":""}" onclick="pickFood(${i})">${qDot(e)}<div class="t"><b>${esc(f[0])}</b><span>${f[2]} kcal / 100 g · ${f[3]} g prot${f[7]?" · libre":""}</span></div><div class="k">${Math.round(f[2]*f[6]/100)}<span class="tiny muted"> / ${esc(f[5])}</span></div></button>`;
   }).join("");
 }
@@ -1853,7 +2003,7 @@ function listFoods(arr, target="baselist"){
 }
 function pickFood(i){
   const f = FOODS[i];
-  picked = {n:f[0], per100:{kcal:f[2],prot:f[3],fib:f[4]}, unit:f[5], g:f[6]};
+  picked = {n:f[0], per100:{kcal:f[2],prot:f[3],fib:f[4]}, unit:f[5], g:f[6], sug100:f[8], sat100:f[9], nat:f[10]};
   showPick();
 }
 function pickRecent(k){
@@ -1940,10 +2090,12 @@ function pickPreview(){
   if(!g){ el.innerHTML = `<b>—</b><span>indique le poids d'une part</span>`; return; }
   const k = Math.round(picked.per100.kcal*g/100);
   const pr = Math.round(picked.per100.prot*g/100), fb = Math.round(picked.per100.fib*g/100);
-  const e = {kcal:k, prot:pr, fib:fb, ns:picked.ns,
-             per:{kcal:picked.per100.kcal, prot:picked.per100.prot, fib:picked.per100.fib, sug:picked.sug100, sat:picked.sat100}};
+  const e = {kcal:k, prot:pr, fib:fb, ns:picked.ns, nat:picked.nat,
+             sug:picked.sug100!=null?picked.sug100*g/100:null, sat:picked.sat100!=null?picked.sat100*g/100:null,
+             per:{kcal:picked.per100.kcal, prot:picked.per100.prot, fib:picked.per100.fib, sug:picked.sug100, sat:picked.sat100,
+                  sugf:picked.nat ? 0 : picked.sug100}};
   const q = qualityOf(e);
-  el.innerHTML = `${qDot(e)}<b>${num(k)} kcal</b><span>${g} g · ${pr} g protéines · ${fb} g fibres · ${fmtP(ptsOf(k,pr,fb))} pts · ${q.t}</span>`;
+  el.innerHTML = `${qDot(e)}<b>${num(k)} kcal</b><span>${g} g · ${pr} g protéines · ${fb} g fibres · ${fmtP(entryPts(e))} pts · ${q.t}</span>`;
 }
 function pickLabel(g){
   if(pkModeCur === "g") return g + " g";
@@ -1961,6 +2113,8 @@ function confirmPick(){
              per:{kcal:picked.per100.kcal, prot:picked.per100.prot, fib:picked.per100.fib},
              un:picked.unit, uw:+document.getElementById("pkuw").value||picked.g||null};
   if(picked.sug100 != null){ e.sug = picked.sug100*g/100; e.per.sug = picked.sug100; }
+  if(picked.nat) e.nat = 1;                     /* sucres du fruit, du légume ou du laitage nature */
+  e.sugf = picked.nat ? 0 : (e.sug != null ? e.sug : 0);
   if(picked.sat100 != null){ e.sat = picked.sat100*g/100; e.per.sat = picked.sat100; }
   if(picked.code){ e.code = picked.code; e.ns = picked.ns; e.nova = picked.nova; e.add = picked.add;
                    const pr = (S.products||[]).find(x=>x.code===picked.code); if(pr){ pr.uw = e.uw; save(false); } }
@@ -2038,12 +2192,13 @@ function pickPreviewRecipe(e){
 }
 function saveRecipePortion(e){
   const mult = parseFloat((document.getElementById("pkn").value||"1").replace(",","."))||1;
-  const base = e.base || {kcal:e.kcal/(e.mult||1), prot:e.prot/(e.mult||1), fib:e.fib/(e.mult||1)};
+  const base = e.base || {kcal:e.kcal/(e.mult||1), prot:e.prot/(e.mult||1), fib:e.fib/(e.mult||1), sug:(e.sug||0)/(e.mult||1), sat:(e.sat||0)/(e.mult||1), sugf:(e.sugf||0)/(e.mult||1)};
   const d = ensureDay(P(), curDay);
   d.meals[editingRecipe.meal][editingRecipe.i] = {
     n: e.n.replace(/ \(×[\d,]+\)$/,"") + (mult===1?"":" (×"+String(mult).replace(".",",")+")"),
     q: (mult%1?mult.toFixed(1).replace(".",","):mult) + " portion" + (mult>1?"s":""),
     kcal: base.kcal*mult, prot: base.prot*mult, fib: base.fib*mult,
+    sug: (base.sug||0)*mult, sat: (base.sat||0)*mult, sugf: (base.sugf||0)*mult,
     rid: e.rid, mult, base
   };
   editingRecipe = null;
@@ -2530,6 +2685,8 @@ function openMyRecipe(id){
   document.getElementById("mr-k").value = r ? r.nut[0] : "";
   document.getElementById("mr-p").value = r ? r.nut[1] : "";
   document.getElementById("mr-f").value = r ? r.nut[2] : "";
+  document.getElementById("mr-sug").value = r ? (r.nut[3]||"") : "";
+  document.getElementById("mr-sat").value = r ? (r.nut[4]||"") : "";
   document.getElementById("mr-ing").value = r ? r.ing.map(i=>`${i[0]} ; ${i[1]} ; ${i[2]}`).join("\n") : "";
   document.getElementById("mr-steps").value = r ? r.steps.join("\n") : "";
   document.getElementById("mr-del").style.display = r ? "" : "none";
@@ -2549,7 +2706,8 @@ function saveMyRecipe(){
   const rec = {
     id, n, t:+document.getElementById("mr-t").value||30,
     cat:document.getElementById("mr-cat").value, tags:["à nous"],
-    nut:[kcal, +document.getElementById("mr-p").value||0, +document.getElementById("mr-f").value||0],
+    nut:[kcal, +document.getElementById("mr-p").value||0, +document.getElementById("mr-f").value||0,
+         +document.getElementById("mr-sug").value||0, +document.getElementById("mr-sat").value||0, +document.getElementById("mr-sug").value||0],
     ing: ing.length?ing:[["À compléter",1,"pièce"]], steps: steps.length?steps:["À compléter."],
     e:"🍳", updated: Date.now()
   };
@@ -2585,6 +2743,7 @@ function openRecipe(id){
     <div style="font-size:44px;line-height:1.1">${REMOJI[r.id]||"🍽️"}</div>
     <h2>${esc(r.n)}</h2>
     <div class="small muted b">${r.t} min · portion ${esc(P().name)} : ${Math.round(r.nut[0]*f)} kcal · ${Math.round(r.nut[1]*f)} g prot · ${Math.round(r.nut[2]*f)} g fibres</div>
+    <div class="tiny muted b" style="margin-top:3px">${Math.round((r.nut[3]||0)*f)} g de sucres${(r.nut[5]||0) < (r.nut[3]||0) ? ` (dont ${Math.round((r.nut[5]||0)*f)} g ajoutés)` : ""} · ${(Math.round((r.nut[4]||0)*f*10)/10).toString().replace(".",",")} g de saturées · ${fmtP(ptsOf(r.nut[0]*f,r.nut[1]*f,r.nut[2]*f,(r.nut[5]||0)*f,(r.nut[4]||0)*f))} points ${qDot({kcal:r.nut[0]*f,prot:r.nut[1]*f,fib:r.nut[2]*f,per:{prot:r.nut[1]/(r.nut[0]/100), fib:r.nut[2]/(r.nut[0]/100), sugf:(r.nut[5]||0)/(r.nut[0]/100), sug:(r.nut[3]||0)/(r.nut[0]/100), sat:(r.nut[4]||0)/(r.nut[0]/100)}})}</div>
     <div class="h2" style="margin-top:16px">Ingrédients pour deux</div>
     ${r.ing.map(i=>`<div class="ing"><span style="flex:1">${esc(i[0])}</span><span class="b">${fmtQ(i[1],i[2],f1+f2)}</span><span class="each">${fmtQ(i[1],i[2],f1)} / ${fmtQ(i[1],i[2],f2)}</span></div>`).join("")}
     <div class="tiny muted b" style="margin-top:7px">Total pour deux, puis la part de ${esc(p1.name)} / ${esc(p2.name)} à l'assiette.</div>
@@ -2607,8 +2766,8 @@ function openRecipe(id){
 function logRecipe(id,meal){
   const r = recipeById(id), f = portionFactor(P());
   closeModal("m-recipe");
-  const base = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f};
-  pushEntry(meal, {n:r.n, q:"1 portion", kcal:base.kcal, prot:base.prot, fib:base.fib, rid:r.id, mult:1, base});
+  const base = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f, sug:(r.nut[3]||0)*f, sat:(r.nut[4]||0)*f, sugf:(r.nut[5]||0)*f};
+  pushEntry(meal, {n:r.n, q:"1 portion", kcal:base.kcal, prot:base.prot, fib:base.fib, sug:base.sug, sat:base.sat, sugf:base.sugf, rid:r.id, mult:1, base});
   go("today");
 }
 
@@ -3137,7 +3296,8 @@ function renderProfile(){
       Métabolisme de base (Mifflin-St Jeor, ${p.sex==="m"?"homme":"femme"} de ${p.age} ans, ${p.height} cm, ${p.weight} kg) puis multiplié par ton activité hors sport (×${p.act}) : <b>${num(b.tdee)} kcal</b> de dépense estimée.<br>
       Moins le déficit choisi : <b>− ${num(p.pace)} kcal</b>.<br>
       Résultat : <b>${num(b.kcal)} kcal</b> par jour, jamais moins de ${num(floor)}.<br><br>
-      Les protéines visent 1,6 g par kilo de poids cible, les fibres suivent les repères français. La réserve de la semaine vaut 70 % d'un budget quotidien.
+      Les protéines visent 1,6 g par kilo de poids cible, les fibres suivent les repères français. La réserve de la semaine vaut 70 % d'un budget quotidien.<br><br>
+      Le repère en <b>points</b> vaut ${budgetPts(b)} : il traduit une journée à ${num(b.kcal)} kcal qui atteindrait aussi ses objectifs de protéines et de fibres, sans dépasser ${b.sug} g de sucres ni ${b.sat} g de graisses saturées (12 % et 10 % de l'énergie, les repères officiels). Un point coûte cher quand les calories viennent du sucre ou du gras saturé, et presque rien quand elles viennent des protéines ou des fibres.
     </div></details>
     <div class="tiny muted b" style="margin-top:10px">${weeksToGoal(p)}</div>`
     : `<div class="empty">Complète âge, taille et poids : le budget se calcule tout seul.</div>`;
