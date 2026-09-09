@@ -358,6 +358,9 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .slotbtn{display:flex;align-items:center;gap:9px;width:100%;background:var(--surface2);border:2.5px solid var(--line);border-radius:13px;padding:9px 11px;font-family:inherit;text-align:left;min-width:0}
 .slotbtn .em{font-size:17px;flex:none}
 .slotbtn .nm{flex:1;min-width:0;font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rbook{width:36px;height:36px;flex:none;border-radius:11px;background:var(--acc-soft);color:var(--acc);display:flex;align-items:center;justify-content:center;margin-left:7px}
+.slot{align-items:center}
+.pit{align-items:center}
 .slotbtn .kc{font-size:11px;font-weight:900;color:var(--muted);flex:none}
 
 /* cœurs sur les recettes */
@@ -401,6 +404,27 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .cmp .v.a{text-align:right;color:var(--violet)}
 .cmp .v.b{text-align:left;color:var(--coral)}
 .cmp .sep{grid-column:1/-1;height:1px;background:var(--line)}
+
+/* explication points vs calories */
+.ptsnote{margin-top:11px;background:var(--sun-soft);border-radius:15px;padding:13px 15px;display:flex;flex-direction:column;gap:6px}
+.ptsnote.ok{background:var(--mint-soft)}
+.ptsnote b{font-size:13.5px;font-weight:900;color:var(--sun-ink);line-height:1.35}
+.ptsnote.ok b{color:var(--mint-ink)}
+.ptsnote span{font-size:12.5px;font-weight:700;line-height:1.55;color:var(--sun-ink);opacity:.92}
+.ptsnote.ok span{color:var(--mint-ink)}
+
+/* une ligne d'aliment devient modifiable */
+.it .ited{flex:1;display:flex;align-items:center;gap:9px;min-width:0;background:none;border:0;padding:0;font-family:inherit;text-align:left;color:inherit}
+.it .ited .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* pas-à-pas de quantité */
+.stepper{display:flex;align-items:center;gap:9px}
+.stepper button{width:46px;height:46px;flex:none;border-radius:14px;background:var(--surface2);border:2.5px solid var(--line);font-family:inherit;font-size:22px;font-weight:900;color:var(--acc);display:flex;align-items:center;justify-content:center}
+.stepper input{width:74px;flex:none;text-align:center;padding:12px 6px;border-radius:14px;border:2.5px solid var(--line);background:var(--surface);font-family:inherit;font-weight:900;font-size:18px;color:var(--ink);min-height:46px}
+.stepper .un{font-size:14px;font-weight:800;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pkres{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;background:var(--surface2);border-radius:14px;padding:11px 13px;margin-bottom:11px}
+.pkres b{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
+.pkres span{font-size:12.5px;font-weight:800;color:var(--muted)}
 
 /* quantités rapides */
 .qq{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}
@@ -479,6 +503,7 @@ details.fold .in{font-size:13px;font-weight:700;color:var(--muted);padding-top:6
   </div>
 
   <div id="hact"></div>
+  <div id="ptsnote"></div>
   <div class="water" id="water"></div>
   <div id="newbadge"></div>
   <div id="chalbox"></div>
@@ -749,10 +774,30 @@ details.fold .in{font-size:13px;font-weight:700;color:var(--muted);padding-top:6
   <div id="a-pick" style="display:none;border-top:2.5px solid var(--line);margin-top:14px;padding-top:14px">
     <div class="b" id="pkname"></div>
     <div id="pkinfo"></div>
-    <div class="qty" id="pkqty"></div>
-    <div class="field"><label>Quantité (g ou ml)</label><input id="pkg" type="number" inputmode="numeric" oninput="pickPreview()"></div>
-    <div class="small b muted" id="pkcal" style="margin-bottom:10px"></div>
-    <button class="btn w press" onclick="confirmPick()">Ajouter au repas</button>
+
+    <div class="seg" id="pkmode" style="margin:12px 0 10px">
+      <button class="on" onclick="pkMode('u')">En parts</button>
+      <button onclick="pkMode('g')">En grammes</button>
+    </div>
+
+    <div id="pk-u">
+      <div class="stepper">
+        <button class="press" onclick="pkStep(-1)">−</button>
+        <input id="pkn" type="number" step="0.5" inputmode="decimal" value="1" oninput="pickPreview()">
+        <button class="press" onclick="pkStep(1)">+</button>
+        <span class="un" id="pkun">part</span>
+      </div>
+      <div class="field" style="margin-top:11px"><label id="pkuwlab">Poids d'une part (g)</label><input id="pkuw" type="number" inputmode="numeric" oninput="pickPreview()"></div>
+      <div class="tiny muted b" id="pkhint" style="margin:-4px 0 10px"></div>
+    </div>
+
+    <div id="pk-g" style="display:none">
+      <div class="qty" id="pkqty"></div>
+      <div class="field"><label>Quantité (g ou ml)</label><input id="pkg" type="number" inputmode="numeric" oninput="pickPreview()"></div>
+    </div>
+
+    <div class="pkres" id="pkcal"></div>
+    <button class="btn w press" id="pkbtn" onclick="confirmPick()">Ajouter au repas</button>
   </div>
 </div></div>
 
@@ -939,6 +984,40 @@ const FOODS = [
 ["Saucisson","Apéro & extras",410,25,0,"rondelles (5)",25,0],["Biscuits apéro / crackers","Apéro & extras",480,8,3,"poignée",30,0],["Carré de chocolat noir","Apéro & extras",540,7,10,"carré",10,0],
 ["Barre chocolatée","Apéro & extras",480,5,2,"barre",50,0],["Biscuits (petit-beurre, sablé)","Apéro & extras",450,7,2,"pièce",10,0],["Gâteau / pâtisserie","Apéro & extras",380,5,1.5,"part",100,0],
 ["Glace","Apéro & extras",200,3.5,0.5,"boule",70,0],["Bonbons","Apéro & extras",350,0,0,"poignée",30,0],["Compote sans sucre ajouté","Apéro & extras",55,0.3,1.5,"gourde",90,1],
+// --- v3.1 : fruits et légumes frais, et les ingrédients des nouvelles recettes ---
+// Fruits (catégorie Fruits, tous "libres" au sens de l'appli sauf les plus sucrés)
+["Mangue","Fruits",60,0.8,1.6,"pièce",200,1],["Ananas","Fruits",50,0.5,1.4,"tranche",120,1],
+["Pêche","Fruits",39,0.9,1.5,"pièce",150,1],["Nectarine","Fruits",44,1,1.7,"pièce",140,1],
+["Abricot","Fruits",48,1.4,2,"pièce",50,1],["Prune","Fruits",46,0.7,1.4,"pièce",60,1],
+["Cerises","Fruits",63,1,2.1,"bol",120,1],["Myrtilles","Fruits",57,0.7,2.4,"bol",100,1],
+["Mûres","Fruits",43,1.4,5.3,"bol",100,1],["Groseilles","Fruits",56,1.4,4.3,"bol",100,1],
+["Figue fraîche","Fruits",74,0.8,2.9,"pièce",60,1],["Litchis","Fruits",66,0.8,1.3,"bol",100,1],
+["Pamplemousse","Fruits",42,0.8,1.6,"demi",200,1],["Mandarine","Fruits",53,0.8,1.8,"pièce",70,1],
+["Citron","Fruits",29,1.1,2.8,"pièce",100,1],["Grenade","Fruits",83,1.7,4,"demi",140,1],
+["Papaye","Fruits",43,0.5,1.7,"tranche",150,1],["Melon","Fruits",34,0.8,0.9,"tranche",200,1],
+["Avocat","Fruits",160,2,6.7,"demi",100,0],["Banane plantain / séchée","Fruits",120,1.3,2.3,"pièce",80,0],
+["Fruits secs (abricots, dattes)","Fruits",280,2.5,7,"poignée",40,0],
+["Fruits au sirop égouttés","Fruits",70,0.4,1,"part",120,0],
+// Légumes frais
+["Aubergine","Libres",25,1,3,"pièce",250,1],["Betterave cuite","Libres",43,1.6,2.8,"pièce",100,1],
+["Potimarron","Libres",40,1.2,2.5,"portion",200,1],["Courge butternut","Libres",45,1,2,"portion",200,1],
+["Petits pois","Libres",81,5.4,5,"portion",120,1],["Radis","Libres",16,0.7,1.6,"botte",100,1],
+["Endive","Libres",17,1,3.1,"pièce",100,1],["Fenouil","Libres",31,1.2,3.1,"pièce",200,1],
+["Asperges","Libres",20,2.2,2.1,"botte",150,1],["Chou (blanc, rouge, frisé)","Libres",25,1.3,2.5,"portion",150,1],
+["Chou de Bruxelles","Libres",43,3.4,3.8,"portion",150,1],["Navet","Libres",28,0.9,1.8,"pièce",120,1],
+["Céleri branche","Libres",16,0.7,1.6,"branche",50,1],["Céleri-rave","Libres",42,1.5,1.8,"portion",150,1],
+["Maïs (grains)","Féculents",96,3.4,2.7,"portion",80,0],["Oignon","Libres",40,1.1,1.7,"pièce",100,1],
+["Oignon rouge","Libres",40,1.1,1.7,"pièce",100,1],["Échalote","Libres",72,2.5,3.2,"pièce",30,1],
+["Ail","Libres",149,6.4,2.1,"gousse",5,1],["Poireau","Libres",31,1.5,1.8,"pièce",120,1],
+["Blette","Libres",19,1.8,1.6,"portion",150,1],["Ratatouille maison","Libres",45,1.2,2.5,"portion",250,1],
+["Poêlée de légumes surgelés","Libres",50,2,3,"portion",200,1],
+// Ingrédients des recettes v3 qui manquaient
+["Boulgour (sec)","Féculents",350,12,8,"portion",60,0],["Semoule (sèche)","Féculents",350,12,3,"portion",60,0],
+["Chapelure","Féculents",380,13,4,"c. à s.",8,0],["Farine","Féculents",340,10,3,"c. à s.",10,0],
+["Bouillon de légumes","Libres",4,0.2,0,"bol",250,1],["Bouillon de volaille","Libres",6,0.5,0,"bol",250,1],
+["Filet de maquereau","Protéines",205,19,0,"filet",120,0],["Sardines à l'huile égouttées","Protéines",220,25,0,"boîte",70,0],
+["Graines de sésame","Gras & sauces",570,17,12,"c. à s.",9,0],["Graines de courge / tournesol","Gras & sauces",560,25,6,"c. à s.",10,0],
+["Tofu nature","Protéines",120,12,1,"portion",120,0],["Tofu fumé","Protéines",150,16,1,"portion",120,0],
 ];
 
 // Activités : kcal par minute pour ~80 kg (ajusté au poids du profil)
@@ -1092,7 +1171,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "3.0";
+const VERSION = "3.1";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1230,18 +1309,31 @@ function toggleFav(k){
    sans elles, on retombe sur la densité de points, plus grossière. */
 function qualityOf(e){
   const kcal = e.kcal||0;
-  if(!kcal) return {c:"q0", t:"—"};
-  if(e.sug != null && e.sat != null){
-    const per = 100/kcal;
+  if(!kcal && !e.ns) return {c:"q0", t:"—"};
+  /* 1. Le Nutri-Score quand on l'a : c'est l'algorithme officiel, il gère les cas
+        que mes seuils rataient (un yaourt nature est riche en lactose sans être mauvais). */
+  if(e.ns){
+    const m = {a:["q1","excellent"], b:["q2","bon"], c:["q3","moyen"], d:["q4","médiocre"], e:["q4","à limiter"]}[e.ns];
+    if(m) return {c:m[0], t:m[1]};
+  }
+  /* 2. Sinon, sucres et graisses saturées pour 100 g, aux seuils du référentiel
+        britannique (FSA) repris par le Nutri-Score : c'est la bonne base de comparaison. */
+  const per = e.per || (e.g ? {sug: e.sug!=null ? e.sug/e.g*100 : null, sat: e.sat!=null ? e.sat/e.g*100 : null,
+                               prot: e.prot/e.g*100, fib: e.fib/e.g*100} : null);
+  if(per && per.sug != null && per.sat != null){
     let pts = 0;
-    pts += (e.sug*per > 12 ? 2 : e.sug*per > 5 ? 1 : 0);
-    pts += (e.sat*per > 5 ? 2 : e.sat*per > 2 ? 1 : 0);
-    pts -= ((e.prot||0)*per > 8 ? 1 : 0);
-    pts -= ((e.fib||0)*per > 3 ? 1 : 0);
+    pts += per.sug > 22.5 ? 2 : per.sug > 5 ? 1 : 0;
+    pts += per.sat > 5 ? 2 : per.sat > 1.5 ? 1 : 0;
+    if((per.prot||0) > 12) pts -= 1;
+    if((per.fib||0) > 6) pts -= 1;
+    /* les protéines ne rachètent pas tout : un fromage très gras reste au moins « moyen » */
+    if(per.sat > 5 || per.sug > 22.5) pts = Math.max(pts, 2);
     return pts <= 0 ? {c:"q1", t:"bon"} : pts === 1 ? {c:"q2", t:"correct"} : pts === 2 ? {c:"q3", t:"moyen"} : {c:"q4", t:"riche"};
   }
+  /* 3. À défaut — notre base maison, qui n'a ni sucres ni graisses saturées —
+        la densité de points. Plus grossier, et c'est assumé. */
   const dens = ptsOf(kcal, e.prot||0, e.fib||0) / (kcal/100);
-  return dens < 1.1 ? {c:"q1", t:"bon"} : dens < 1.5 ? {c:"q2", t:"correct"} : dens < 1.9 ? {c:"q3", t:"moyen"} : {c:"q4", t:"riche"};
+  return dens < 1.1 ? {c:"q1", t:"bon"} : dens < 1.45 ? {c:"q2", t:"correct"} : dens < 1.7 ? {c:"q3", t:"moyen"} : {c:"q4", t:"riche"};
 }
 function qDot(e){ const q = qualityOf(e); return `<i class="qd ${q.c}" title="${q.t}"></i>`; }
 
@@ -1420,7 +1512,7 @@ function go(v){
 function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function toast(t){const e=document.getElementById("toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),2000)}
 function openModal(id){document.getElementById(id).classList.add("on"); if(id==="m-pantry") renderPantry();}
-function closeModal(id){document.getElementById(id).classList.remove("on"); if(id==="m-add") stopScan();}
+function closeModal(id){document.getElementById(id).classList.remove("on"); if(id==="m-add"){ stopScan(); editing=null; editingRecipe=null; }}
 function num(n){ return Math.round(n).toLocaleString("fr-FR"); }
 
 function renderTop(){
@@ -1459,6 +1551,7 @@ function renderToday(){
     document.getElementById("meals").innerHTML = `<div class="empty">Profil à compléter avant de loguer.</div>`;
     document.getElementById("acts").innerHTML = ""; document.getElementById("daytotal").textContent = "";
     document.getElementById("water").innerHTML = ""; document.getElementById("closeday").innerHTML = "";
+    document.getElementById("hact").innerHTML = ""; document.getElementById("ptsnote").innerHTML = "";
     return;
   }
   const t = dayTotals(p,curDay), r = reserveState(p,curDay);
@@ -1471,6 +1564,7 @@ function renderToday(){
   document.getElementById("rin").innerHTML = left>=0
     ? `<b>${num(left)}</b><span>kcal libres</span><em>${fmtP(dp)} / ${bp} pts</em>`
     : `<b>+${num(-left)}</b><span>au-dessus</span><em>${fmtP(dp)} / ${bp} pts</em>`;
+  renderPtsNote(p, b, t, left, dp, bp);
 
   const bar = (cls,lab,val,max,unit)=>`<div class="hs ${cls}"><div class="l"><span>${lab}</span><span>${num(val)} / ${num(max)} ${unit}</span></div><div class="t"><i style="width:${Math.min(100,val/max*100)}%"></i></div></div>`;
   const acts = dayOf(p,curDay).acts || [];
@@ -1501,12 +1595,12 @@ function renderToday(){
     if(items.length){
       row = `<div class="ml"><button class="mlmain press" onclick="openAdd('${m}')"><div class="ic">${MEMOJI[m]}</div><div class="tx"><b>${lab}</b><span>${items.length} entrée${items.length>1?"s":""} · repère ${num(target)} kcal</span></div></button><div class="kc">${num(tot)}<em>${fmtP(mp)} pts</em></div></div>`;
     } else if(plan){
-      row = `<div class="ml add"><button class="mlmain press" onclick="openAdd('${m}')"><div class="ic">${emojiOf(plan)}</div><div class="tx"><b>${lab}</b><span class="plan">Prévu : ${esc(plan.n)}</span></div></button><button class="mlgo press" title="J'ai mangé ça" onclick="logRecipe('${plan.id}','${m}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"></path></svg></button></div>`;
+      row = `<div class="ml add"><button class="mlmain press" onclick="openRecipe('${plan.id}')"><div class="ic">${emojiOf(plan)}</div><div class="tx"><b>${lab}</b><span class="plan">Prévu : ${esc(plan.n)} — voir la recette</span></div></button><button class="mlgo press" title="J'ai mangé ça" onclick="logRecipe('${plan.id}','${m}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"></path></svg></button></div>`;
     } else {
       row = `<div class="ml add"><button class="mlmain press" onclick="openAdd('${m}')"><div class="ic">${MEMOJI[m]}</div><div class="tx"><b>${lab}</b><span>Repère : ${num(target)} kcal</span></div></button><div class="kc">+</div></div>`;
     }
     const list = items.length ? `<div class="items">${items.map((e,i)=>
-      `<div class="it">${qDot(e)}<span class="n">${esc(e.n)}</span><span class="q">${esc(e.q)}</span><span class="k">${num(e.kcal)}</span><button class="x press" onclick="delEntry('${m}',${i})">×</button></div>`).join("")}</div>` : "";
+      `<div class="it"><button class="press ited" onclick="editEntry('${m}',${i})">${qDot(e)}<span class="n">${esc(e.n)}</span><span class="q">${esc(e.q)}</span><span class="k">${num(e.kcal)}</span></button><button class="x press" onclick="delEntry('${m}',${i})">×</button></div>`).join("")}</div>` : "";
     return row + list;
   }).join("");
 
@@ -1563,6 +1657,34 @@ function repeatActivity(){
   ensureDay(P(),curDay).acts.push({n:a.n, min:a.min||0, steps:a.steps||0, met:a.met||0, kcal:Math.round(kcal)});
   save(); renderToday(); renderTop(); checkBadges();
   toast("Ajouté · +" + Math.round(kcal) + " kcal de réserve");
+}
+
+
+/* Retour d'Anaïs : « il me reste des calories mais mes points dépassent, c'est contradictoire ».
+   Ça ne l'est pas, et c'est même toute l'utilité des points — mais il fallait le dire. */
+function renderPtsNote(p, b, t, left, dp, bp){
+  const el = document.getElementById("ptsnote"); if(!el) return;
+  if(t.n === 0){ el.innerHTML = ""; return; }
+  const protShort = t.prot < b.prot * 0.75, fibShort = t.fib < b.fib * 0.75;
+  if(dp > bp && left >= 0){
+    const manque = [];
+    if(protShort) manque.push(`des protéines (${t.prot} g sur ${b.prot})`);
+    if(fibShort) manque.push(`des fibres (${t.fib} g sur ${b.fib})`);
+    el.innerHTML = `<div class="ptsnote">
+      <b>Il te reste ${num(left)} kcal, et pourtant tes points dépassent.</b>
+      <span>Ce n'est pas une erreur : les points ne comptent pas que les calories, ils tiennent compte de la qualité. Le repère de ${bp} points suppose une journée qui atteint ses objectifs de protéines et de fibres.${manque.length?` Aujourd'hui il te manque ${manque.join(" et ")}, donc les mêmes calories coûtent plus cher.`:""}</span>
+      <span><b>Ce que ça veut dire :</b> tu peux encore manger, mais choisis plutôt du protéiné ou du fibreux — un yaourt nature, des œufs, un fruit, des légumes — plutôt que du sucré ou du gras.</span>
+    </div>`;
+    return;
+  }
+  if(dp <= bp && left < 0){
+    el.innerHTML = `<div class="ptsnote ok">
+      <b>Tu dépasses en calories, mais pas en points.</b>
+      <span>C'est le bon signe : ce que tu as mangé était de bonne qualité — assez de protéines et de fibres. Le dépassement se prend sur la réserve de la semaine.</span>
+    </div>`;
+    return;
+  }
+  el.innerHTML = "";
 }
 
 function chalHTML(cs){
@@ -1646,10 +1768,15 @@ function pushEntry(meal,e){ const d=ensureDay(P(),curDay); d.meals[meal].push(e)
 let addMeal="dej", picked=null, acat="Libres";
 function openAdd(meal){
   addMeal = meal || defaultMeal();
-  document.getElementById("addtitle").textContent = (MEALS.find(m=>m[0]===addMeal)||["","Ajouter"])[1];
+  document.getElementById("addtitle").textContent = (editing ? "Modifier — " : "") + (MEALS.find(m=>m[0]===addMeal)||["","Ajouter"])[1];
   document.getElementById("q").value = "";
   addTab("food");
   document.getElementById("a-pick").style.display="none"; picked=null;
+  /* on remet le sélecteur dans son état standard, au cas où on sorte d'une édition de portion */
+  document.getElementById("pkmode").style.display = "";
+  document.getElementById("pkuwlab").parentNode.style.display = "";
+  document.getElementById("pkbtn").onclick = confirmPick;
+  document.getElementById("pkn").oninput = pickPreview;
   openModal("m-add");
 }
 function addTab(t){
@@ -1684,7 +1811,7 @@ function renderAddList(){
   }
   if((S.products||[]).length){
     html += `<div class="rayon" style="position:static">Mes produits</div>` + S.products.slice(0,10).map(pr=>
-      `<button class="fl press" onclick="pickProduct('${pr.code}')">${qDot({kcal:pr.per100.kcal,prot:pr.per100.prot,fib:pr.per100.fib,sug:pr.sug,sat:pr.sat})}<div class="t"><b>${esc(pr.n)}</b><span>${Math.round(pr.per100.kcal)} kcal / 100 g${pr.ns?" · Nutri-Score "+pr.ns.toUpperCase():""}</span></div><div class="k">→</div></button>`).join("");
+      `<button class="fl press" onclick="pickProduct('${pr.code}')">${qDot({kcal:pr.per100.kcal,ns:pr.ns,per:{prot:pr.per100.prot,fib:pr.per100.fib,sug:pr.sug,sat:pr.sat}})}<div class="t"><b>${esc(pr.n)}</b><span>${Math.round(pr.per100.kcal)} kcal / 100 g${pr.ns?" · Nutri-Score "+pr.ns.toUpperCase():""}</span></div><div class="k">→</div></button>`).join("");
   }
   html += `<div class="rayon" style="position:static">La base</div><div class="chips" id="acats"></div><div id="baselist"></div>`;
   if(!rec.length && !(S.products||[]).length) html = `<div class="chips" id="acats"></div><div id="baselist"></div>`;
@@ -1731,51 +1858,215 @@ function pickFood(i){
 }
 function pickRecent(k){
   const r = (P().recents||{})[k]; if(!r) return;
+  /* Si on connaît le détail au 100 g, on rouvre le sélecteur pour ajuster ; sinon on rejoue tel quel. */
+  if(r.per && r.g){
+    picked = {n:r.n, per100:r.per, unit:r.un||"part", g:r.uw||r.g, sug100:r.per.sug, sat100:r.per.sat, code:r.code, ns:r.ns, nova:r.nova, add:r.add};
+    showPick(r.g, r.uw);
+    return;
+  }
   pushEntry(addMeal, {n:r.n, q:r.q||"portion", kcal:r.kcal||0, prot:r.prot||0, fib:r.fib||0, sug:r.sug, sat:r.sat});
   closeModal("m-add");
 }
 function pickProduct(code){
   const pr = (S.products||[]).find(x=>x.code===code); if(!pr) return;
-  picked = {n:pr.n, per100:pr.per100, unit:"portion", g:pr.g||100, sug100:pr.sug, sat100:pr.sat, code:pr.code, ns:pr.ns, nova:pr.nova, add:pr.add, img:pr.img};
-  showPick();
+  picked = {n:pr.n, per100:pr.per100, unit:pr.unitName||"part", g:pr.g||100, sug100:pr.sug, sat100:pr.sat,
+            code:pr.code, ns:pr.ns, nova:pr.nova, add:pr.add, img:pr.img, pack:pr.qty, uw:pr.uw||null};
+  showPick(null, pr.uw||null);
 }
-function showPick(){
+
+/* ---------- le sélecteur de quantité ----------
+   Anaïs : « ça n'affichait que 250 g, la taille du paquet ». Deux modes désormais :
+   en parts (nombre × poids d'une part, mémorisé) ou en grammes. */
+let pkModeCur = "u";
+function pkMode(m){
+  pkModeCur = m;
+  document.getElementById("pk-u").style.display = m==="u" ? "" : "none";
+  document.getElementById("pk-g").style.display = m==="g" ? "" : "none";
+  [...document.querySelectorAll("#pkmode button")].forEach((b,i)=>b.classList.toggle("on", ["u","g"][i]===m));
+  pickPreview();
+}
+function pkStep(d){
+  const el = document.getElementById("pkn");
+  let v = (parseFloat((el.value||"1").replace(",","."))||1) + d*(0.5);
+  if(v < 0.5) v = 0.5;
+  el.value = (Math.round(v*2)/2).toString().replace(".",",");
+  pickPreview();
+}
+function unitWeightMemo(name){
+  const m = (S.meta.uw||{})[norm(name)];
+  return m || null;
+}
+function rememberUnitWeight(name, w){
+  if(!w || w<=0) return;
+  S.meta.uw = S.meta.uw || {};
+  S.meta.uw[norm(name)] = Math.round(w);
+}
+function showPick(gPrefill, uwPrefill){
   document.getElementById("a-pick").style.display="";
   document.getElementById("pkname").textContent = picked.n;
   const inf = document.getElementById("pkinfo");
   inf.innerHTML = picked.ns
     ? `<div style="display:flex;align-items:center;gap:9px;margin:8px 0 2px"><span class="nsc ${esc(picked.ns)}">${esc(picked.ns.toUpperCase())}</span><span class="tiny muted b">Nutri-Score${picked.nova?" · NOVA "+picked.nova:""}${picked.add!=null?" · "+picked.add+" additif"+(picked.add>1?"s":""):""}<br><span class="lnk press" onclick="showProduct('${picked.code}')">Voir la fiche</span></span></div>`
     : "";
-  const g = picked.g;
-  /* A4 : les multiplicateurs d'une tape, avec la dernière quantité utilisée en mémoire */
-  const memo = (P().recents||{})[recentKey({n:picked.n})];
-  const memoG = memo && /^([\d.,]+) g$/.test(memo.q||"") ? Math.round(parseFloat(memo.q.replace(",","."))) : null;
-  const base = memoG || g;
-  const opts = [[0.5,"×0,5"],[1,memoG?"comme d'habitude":"1 "+picked.unit],[2,"×2"]];
-  document.getElementById("pkqty").innerHTML = opts.map((o,i)=>`<button class="${i===1?"on":""}" onclick="setG(${Math.round(base*o[0])},this)">${esc(o[1])}</button>`).join("");
-  document.getElementById("pkg").value = base;
-  pickPreview();
+
+  const uw = uwPrefill || unitWeightMemo(picked.n) || picked.g || null;
+  document.getElementById("pkun").textContent = picked.unit || "part";
+  document.getElementById("pkuwlab").textContent = "Poids d'un" + (/^[aeiouéè]/i.test(picked.unit||"p") ? "e " : "e ") + (picked.unit||"part") + " (g)";
+  document.getElementById("pkuw").value = uw || "";
+  document.getElementById("pkuw").placeholder = uw ? "" : "à renseigner une fois";
+  document.getElementById("pkhint").textContent = picked.pack
+    ? `Paquet entier : ${picked.pack}. Indique le poids d'une part une seule fois, l'appli s'en souviendra.`
+    : (uw ? "" : "Indique le poids d'une part une seule fois, l'appli s'en souviendra.");
+  document.getElementById("pkn").value = gPrefill && uw ? (Math.round(gPrefill/uw*2)/2).toString().replace(".",",") : "1";
+
+  const opts = [[0.5,"½"],[1,"1"],[1.5,"1,5"],[2,"2"],[3,"3"]];
+  document.getElementById("pkqty").innerHTML = "";
+  document.getElementById("pkg").value = gPrefill || uw || 100;
+
+  pkMode(uw ? "u" : (picked.code ? "u" : "g"));
+  document.getElementById("pkbtn").textContent = editing ? "Enregistrer la modification" : "Ajouter au repas";
   document.getElementById("a-pick").scrollIntoView({behavior:"smooth",block:"nearest"});
 }
-function setG(g,btn){ document.getElementById("pkg").value=g; document.querySelectorAll("#pkqty button").forEach(b=>b.classList.toggle("on",b===btn)); pickPreview(); }
+function pickGrams(){
+  if(pkModeCur === "g") return +document.getElementById("pkg").value||0;
+  const n = parseFloat((document.getElementById("pkn").value||"").replace(",","."))||0;
+  const uw = +document.getElementById("pkuw").value||0;
+  return Math.round(n*uw);
+}
 function pickPreview(){
   if(!picked) return;
-  const g = +document.getElementById("pkg").value||0;
-  document.getElementById("pkcal").textContent = Math.round(picked.per100.kcal*g/100)+" kcal · "+Math.round(picked.per100.prot*g/100)+" g protéines · "+Math.round(picked.per100.fib*g/100)+" g fibres";
+  const g = pickGrams();
+  const el = document.getElementById("pkcal");
+  if(!g){ el.innerHTML = `<b>—</b><span>indique le poids d'une part</span>`; return; }
+  const k = Math.round(picked.per100.kcal*g/100);
+  const pr = Math.round(picked.per100.prot*g/100), fb = Math.round(picked.per100.fib*g/100);
+  const e = {kcal:k, prot:pr, fib:fb, ns:picked.ns,
+             per:{kcal:picked.per100.kcal, prot:picked.per100.prot, fib:picked.per100.fib, sug:picked.sug100, sat:picked.sat100}};
+  const q = qualityOf(e);
+  el.innerHTML = `${qDot(e)}<b>${num(k)} kcal</b><span>${g} g · ${pr} g protéines · ${fb} g fibres · ${fmtP(ptsOf(k,pr,fb))} pts · ${q.t}</span>`;
+}
+function pickLabel(g){
+  if(pkModeCur === "g") return g + " g";
+  const n = parseFloat((document.getElementById("pkn").value||"").replace(",","."))||1;
+  const u = picked.unit || "part";
+  const plural = n > 1 && !/^(c\. à|g|ml)/.test(u) ? u + "s" : u;
+  return (n%1 ? n.toFixed(1).replace(".",",") : n) + " " + plural + " (" + g + " g)";
 }
 function confirmPick(){
-  const g = +document.getElementById("pkg").value||0; if(!g||!picked) return;
-  const e = {n:picked.n, q:g+" g", kcal:picked.per100.kcal*g/100, prot:picked.per100.prot*g/100, fib:picked.per100.fib*g/100};
-  if(picked.sug100 != null) e.sug = picked.sug100*g/100;
-  if(picked.sat100 != null) e.sat = picked.sat100*g/100;
+  const g = pickGrams();
+  if(!g || !picked) return toast("Indique une quantité");
+  if(pkModeCur === "u") rememberUnitWeight(picked.n, +document.getElementById("pkuw").value||0);
+  const e = {n:picked.n, q:pickLabel(g), g,
+             kcal:picked.per100.kcal*g/100, prot:picked.per100.prot*g/100, fib:picked.per100.fib*g/100,
+             per:{kcal:picked.per100.kcal, prot:picked.per100.prot, fib:picked.per100.fib},
+             un:picked.unit, uw:+document.getElementById("pkuw").value||picked.g||null};
+  if(picked.sug100 != null){ e.sug = picked.sug100*g/100; e.per.sug = picked.sug100; }
+  if(picked.sat100 != null){ e.sat = picked.sat100*g/100; e.per.sat = picked.sat100; }
+  if(picked.code){ e.code = picked.code; e.ns = picked.ns; e.nova = picked.nova; e.add = picked.add;
+                   const pr = (S.products||[]).find(x=>x.code===picked.code); if(pr){ pr.uw = e.uw; save(false); } }
+  if(editing){
+    const d = ensureDay(P(), editing.day || curDay);
+    d.meals[editing.meal][editing.i] = e;
+    touchRecent(e, editing.meal);
+    editing = null;
+    save(); renderToday(); renderTop(); closeModal("m-add"); toast("Modifié");
+    return;
+  }
   pushEntry(addMeal, e);
   closeModal("m-add");
+}
+
+/* Anaïs : « pas de possibilité de modifier la saisie ». On peut maintenant. */
+let editing = null;
+function editEntry(meal, i){
+  const d = dayOf(P(), curDay), e = (d.meals[meal]||[])[i];
+  if(!e) return;
+  if(e.rid){                                   /* une portion de recette : on ajuste le multiplicateur */
+    editingRecipe = {meal, i, e}; openRecipePortion(e);
+    return;
+  }
+  let per = e.per, g = e.g;
+  if(!per || !g){                              /* saisie d'avant la 3.1 : on retrouve les grammes dans le libellé */
+    const m = /([\d.,]+)\s*g/.exec(e.q||"");
+    g = m ? parseFloat(m[1].replace(",",".")) : null;
+    if(g && g>0) per = {kcal:e.kcal/g*100, prot:e.prot/g*100, fib:e.fib/g*100};
+  }
+  if(!per || !g){                              /* saisie libre : on renvoie vers l'onglet Libre */
+    editing = {meal, i, day:curDay, free:true};
+    addMeal = meal; openAdd(meal); addTab("free");
+    document.getElementById("fr-n").value = e.n;
+    document.getElementById("fr-k").value = Math.round(e.kcal);
+    document.getElementById("fr-p").value = Math.round(e.prot);
+    document.getElementById("fr-f").value = Math.round(e.fib);
+    return;
+  }
+  editing = {meal, i, day:curDay};
+  addMeal = meal;
+  openAdd(meal);
+  picked = {n:e.n, per100:per, unit:e.un||"part", g:e.uw||g, sug100:per.sug, sat100:per.sat,
+            code:e.code, ns:e.ns, nova:e.nova, add:e.add};
+  showPick(g, e.uw||null);
+}
+
+/* Ajuster la portion d'un plat déjà logué depuis une recette */
+let editingRecipe = null;
+function openRecipePortion(e){
+  const r = recipeById(e.rid);
+  addMeal = editingRecipe.meal;
+  openAdd(editingRecipe.meal);
+  document.getElementById("a-pick").style.display = "";
+  document.getElementById("pkname").textContent = e.n;
+  document.getElementById("pkinfo").innerHTML = `<div class="tiny muted b" style="margin-top:6px">Portion de recette. Ajuste la part que tu as réellement mangée.</div>`;
+  document.getElementById("pkmode").style.display = "none";
+  document.getElementById("pk-g").style.display = "none";
+  document.getElementById("pk-u").style.display = "";
+  document.getElementById("pkun").textContent = "portion";
+  document.getElementById("pkuwlab").parentNode.style.display = "none";
+  document.getElementById("pkhint").textContent = "";
+  document.getElementById("pkn").value = (e.mult||1).toString().replace(".",",");
+  pkModeCur = "r";
+  pickPreviewRecipe(e);
+  document.getElementById("pkn").oninput = ()=>pickPreviewRecipe(e);
+  document.getElementById("pkbtn").textContent = "Enregistrer la modification";
+  document.getElementById("pkbtn").onclick = ()=>saveRecipePortion(e);
+}
+function pickPreviewRecipe(e){
+  const mult = parseFloat((document.getElementById("pkn").value||"1").replace(",","."))||1;
+  const base = e.base || {kcal:e.kcal/(e.mult||1), prot:e.prot/(e.mult||1), fib:e.fib/(e.mult||1)};
+  const k = Math.round(base.kcal*mult);
+  document.getElementById("pkcal").innerHTML = `${qDot({kcal:k,prot:base.prot*mult,fib:base.fib*mult})}<b>${num(k)} kcal</b><span>${Math.round(base.prot*mult)} g protéines · ${Math.round(base.fib*mult)} g fibres</span>`;
+}
+function saveRecipePortion(e){
+  const mult = parseFloat((document.getElementById("pkn").value||"1").replace(",","."))||1;
+  const base = e.base || {kcal:e.kcal/(e.mult||1), prot:e.prot/(e.mult||1), fib:e.fib/(e.mult||1)};
+  const d = ensureDay(P(), curDay);
+  d.meals[editingRecipe.meal][editingRecipe.i] = {
+    n: e.n.replace(/ \(×[\d,]+\)$/,"") + (mult===1?"":" (×"+String(mult).replace(".",",")+")"),
+    q: (mult%1?mult.toFixed(1).replace(".",","):mult) + " portion" + (mult>1?"s":""),
+    kcal: base.kcal*mult, prot: base.prot*mult, fib: base.fib*mult,
+    rid: e.rid, mult, base
+  };
+  editingRecipe = null;
+  document.getElementById("pkbtn").onclick = confirmPick;
+  document.getElementById("pkmode").style.display = "";
+  document.getElementById("pkuwlab").parentNode.style.display = "";
+  document.getElementById("pkn").oninput = pickPreview;
+  save(); renderToday(); renderTop(); closeModal("m-add"); toast("Portion modifiée");
 }
 function addFree(){
   const n=document.getElementById("fr-n").value.trim()||"Saisie libre";
   const k=+document.getElementById("fr-k").value||0;
   if(!k) return toast("Indique au moins les calories");
-  pushEntry(addMeal, {n, q:"estimation", kcal:k, prot:+document.getElementById("fr-p").value||0, fib:+document.getElementById("fr-f").value||0});
+  const e = {n, q:"estimation", kcal:k, prot:+document.getElementById("fr-p").value||0, fib:+document.getElementById("fr-f").value||0};
+  if(editing){
+    const d = ensureDay(P(), editing.day || curDay);
+    d.meals[editing.meal][editing.i] = e;
+    editing = null;
+    ["fr-n","fr-k","fr-p","fr-f"].forEach(id=>document.getElementById(id).value="");
+    save(); renderToday(); renderTop(); closeModal("m-add"); toast("Modifié");
+    return;
+  }
+  pushEntry(addMeal, e);
   ["fr-n","fr-k","fr-p","fr-f"].forEach(id=>document.getElementById(id).value="");
   closeModal("m-add");
 }
@@ -1827,7 +2118,7 @@ async function offSearch(){
     if(!list.length){ box.innerHTML = `<div class="empty">Aucun produit trouvé.</div>`; return; }
     offList = list;
     box.innerHTML = `<div class="rayon" style="position:static">En ligne</div>` + list.map((x,i)=>
-      `<button class="fl press" onclick="pickOff(${i})">${x.ns?`<span class="nsc ${x.ns}" style="width:26px;height:26px;font-size:14px;border-radius:8px">${x.ns.toUpperCase()}</span>`:qDot({kcal:x.per100.kcal,prot:x.per100.prot,fib:x.per100.fib,sug:x.sug,sat:x.sat})}<div class="t"><b>${esc(x.n)}</b><span>${Math.round(x.per100.kcal)} kcal / 100 g · ${Math.round(x.per100.prot)} g prot</span></div><div class="k">→</div></button>`).join("");
+      `<button class="fl press" onclick="pickOff(${i})">${x.ns?`<span class="nsc ${x.ns}" style="width:26px;height:26px;font-size:14px;border-radius:8px">${x.ns.toUpperCase()}</span>`:qDot({kcal:x.per100.kcal,per:{prot:x.per100.prot,fib:x.per100.fib,sug:x.sug,sat:x.sat}})}<div class="t"><b>${esc(x.n)}</b><span>${Math.round(x.per100.kcal)} kcal / 100 g · ${Math.round(x.per100.prot)} g prot</span></div><div class="k">→</div></button>`).join("");
   }catch(e){ box.innerHTML = `<div class="empty">Recherche en ligne indisponible.<br>Utilise la base ou la saisie libre.</div>`; }
 }
 let offList = [];
@@ -2274,6 +2565,18 @@ function delMyRecipe(){
   save(false); closeModal("m-myrecipe"); renderRecipes(); renderMenus(); renderShop();
 }
 
+/* Restaurée : supprimée par erreur lors de la refonte de l'écran Recettes en v3.0,
+   ce qui faisait planter l'ouverture des fiches. */
+function plannedDays(id){
+  if(!S.menus) return [];
+  return S.menus.days.filter(d=>d.din===id||d.dej===id)
+    .map(d=>`${parseKey(d.d).toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")} ${fmtShort(d.d)}${d.din===id?" soir":" midi"}`);
+}
+function fmtQ(q,u,f){
+  let v = q*f;
+  if(["pièce","gousse","c. à s.","c. à c.","pincée"].includes(u)){ v=Math.round(v*2)/2; return (v%1?v.toFixed(1).replace(".",","):v)+" "+u; }
+  return Math.round(v/5)*5+" "+u;
+}
 function openRecipe(id){
   const r = recipeById(id), p1=S.profiles.p1, p2=S.profiles.p2;
   const f1 = portionFactor(p1), f2 = portionFactor(p2), f = portionFactor(P());
@@ -2297,13 +2600,15 @@ function openRecipe(id){
       <button class="btn g sm press" onclick="logRecipe('${r.id}','din')">Je l'ai mangé ce soir</button>
       <button class="btn g sm press" onclick="logRecipe('${r.id}','dej')">…ce midi</button>
     </div>
+    ${plannedDays(r.id).length ? `<div class="tiny muted b" style="margin-top:9px">Déjà au menu : ${plannedDays(r.id).map(x=>esc(x)).join(" · ")}</div>` : ""}
     <div class="tiny muted b" style="margin-top:9px">Programmer = l'inscrire au menu d'un jour et envoyer ses ingrédients dans la liste de courses. Le reste ajoute la portion directement à ton journal du jour.</div>`;
   openModal("m-recipe");
 }
 function logRecipe(id,meal){
   const r = recipeById(id), f = portionFactor(P());
   closeModal("m-recipe");
-  pushEntry(meal, {n:r.n, q:"1 portion "+P().name, kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f});
+  const base = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f};
+  pushEntry(meal, {n:r.n, q:"1 portion", kcal:base.kcal, prot:base.prot, fib:base.fib, rid:r.id, mult:1, base});
   go("today");
 }
 
@@ -2399,10 +2704,13 @@ function renderPickDish(){
   list.sort((a,b)=>(likeOf(b.id))-(likeOf(a.id)) || a.n.localeCompare(b.n,"fr"));
   document.getElementById("pd-list").innerHTML =
     `<button class="pit press ${cur?"":"on"}" onclick="setDish('')"><span class="em">—</span><span class="tx"><b>Rien ce jour-là</b><span>on mange dehors, ou on improvise</span></span></button>` +
-    list.map(r=>`<button class="pit press ${r.id===cur?"on":""}" onclick="setDish('${r.id}')">
-      <span class="em">${emojiOf(r)}</span>
-      <span class="tx"><b>${esc(r.n)}</b><span>${r.t} min · ${Math.round(r.nut[0]*f2)} kcal · ${Math.round(r.nut[1]*f2)} g prot${likeOf(r.id)===1?" · ♥":""}${r.tags.includes("reste pour le lendemain")?" · fait un reste":""}</span></span>
-    </button>`).join("");
+    list.map(r=>`<div class="pit ${r.id===cur?"on":""}">
+      <button class="press" style="flex:1;display:flex;align-items:center;gap:11px;background:none;border:0;padding:0;font-family:inherit;text-align:left;min-width:0;color:inherit" onclick="setDish('${r.id}')">
+        <span class="em">${emojiOf(r)}</span>
+        <span class="tx"><b>${esc(r.n)}</b><span>${r.t} min · ${Math.round(r.nut[0]*f2)} kcal · ${Math.round(r.nut[1]*f2)} g prot${likeOf(r.id)===1?" · ♥":""}${r.tags.includes("reste pour le lendemain")?" · fait un reste":""}</span></span>
+      </button>
+      <button class="rbook press" title="Voir la recette" onclick="closeModal('m-pickdish');openRecipe('${r.id}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Z"></path><path d="M8 7h7M8 11h7"></path></svg></button>
+    </div>`).join("");
 }
 function setDish(id){
   const d = S.menus.days[pdDay];
@@ -2431,7 +2739,9 @@ function renderMenus(){
         <span class="em">${r?emojiOf(r):"＋"}</span>
         <span class="nm">${r?esc(r.n):"À choisir"}</span>
         ${r?`<span class="kc">${Math.round(r.nut[0]*f2)}</span>`:""}
-      </button></div>`;
+      </button>
+      ${r?`<button class="rbook press" title="Voir la recette" onclick="openRecipe('${r.id}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Z"></path><path d="M8 7h7M8 11h7"></path></svg></button>`:""}
+      </div>`;
   };
   document.getElementById("mdays").innerHTML = S.menus.days.map((d,i)=>{
     /* C5 : voir si la journée tient — total prévu pour Anaïs, qui mange les deux repas à la maison */
