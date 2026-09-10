@@ -405,6 +405,17 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .cmp .v.b{text-align:left;color:var(--coral)}
 .cmp .sep{grid-column:1/-1;height:1px;background:var(--line)}
 
+/* raccourcis de repas récurrents */
+.qrow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 4px;padding:0 2px}
+.qchip{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;padding:9px 13px;border-radius:13px;background:var(--acc-soft);color:var(--acc);border:2px solid transparent;font-family:inherit;font-size:13px;font-weight:900;text-align:left;max-width:100%}
+.qchip em{font-style:normal;font-size:10.5px;font-weight:700;opacity:.75}
+.qchip.alt{background:var(--surface2);color:var(--ink)}
+.qchip.ghost{background:none;border:2px dashed var(--line2);color:var(--muted);font-size:12px;font-weight:800;padding:7px 12px}
+.qchip.big{display:inline-flex;flex-direction:row;align-items:stretch;gap:0;padding:0;overflow:hidden}
+.qchip.big>button{background:none;border:0;font-family:inherit;color:inherit;padding:9px 11px 9px 13px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;font-size:13px;font-weight:900;text-align:left;min-width:0}
+.qchip.big>button em{font-style:normal;font-size:10.5px;font-weight:700;opacity:.75}
+.qchip.big>.del{padding:0 11px;font-size:16px;font-weight:900;opacity:.55;border-left:2px solid rgba(0,0,0,.06)}
+
 /* explication points vs calories */
 .ptsnote{margin-top:11px;background:var(--sun-soft);border-radius:15px;padding:13px 15px;display:flex;flex-direction:column;gap:6px}
 .ptsnote.ok{background:var(--mint-soft)}
@@ -1295,7 +1306,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "3.2";
+const VERSION = "3.3";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1334,6 +1345,7 @@ function migrate(s){
   s.likes = s.likes || {};                  /* id de recette -> 1 (aimé) ou -1 (pas aimé) */
   s.products = s.products || [];            /* produits scannés, les plus récents d'abord */
   s.duelLog = s.duelLog || [];              /* {week, p1, p2} une entrée par semaine close */
+  s.mealTpl = s.mealTpl || [];              /* repas enregistrés : {id, name, meal, items[], updated} */
   s.meta = s.meta || {};
   for(const id of ["p1","p2"]){
     const p = s.profiles[id]; if(!p) continue;
@@ -1404,6 +1416,8 @@ function touchRecent(e, meal){
   const k = recentKey(e); if(!k) return;
   const cur = p.recents[k] || {n:e.n, c:0};
   cur.n = e.n; cur.c = (cur.c||0) + 1; cur.last = Date.now(); cur.meal = meal;
+  /* on garde l'entrée entière : la rejouer doit donner exactement la même chose */
+  cur.e = JSON.parse(JSON.stringify(e));
   cur.q = e.q; cur.kcal = e.kcal; cur.prot = e.prot; cur.fib = e.fib;
   if(e.sug != null) cur.sug = e.sug;
   if(e.sat != null) cur.sat = e.sat;
@@ -1749,7 +1763,23 @@ function renderToday(){
     }
     const list = items.length ? `<div class="items">${items.map((e,i)=>
       `<div class="it"><button class="press ited" onclick="editEntry('${m}',${i})">${qDot(e)}<span class="n">${esc(e.n)}</span><span class="q">${esc(e.q)}</span><span class="k">${num(e.kcal)}</span></button><button class="x press" onclick="delEntry('${m}',${i})">×</button></div>`).join("")}</div>` : "";
-    return row + list;
+
+    /* Anaïs : « au petit-déj c'est souvent récurrent, tout ressaisir est contraignant ».
+       Repas vide : ses repas enregistrés et celui de la dernière fois, en une tape.
+       Repas rempli : de quoi l'enregistrer pour la prochaine fois. */
+    let quick = "";
+    if(!items.length){
+      const tpls = tplFor(m), last = lastMealDay(m);
+      const chips = tpls.map(t=>{
+        const k = Math.round(t.items.reduce((a,x)=>a+(x.kcal||0),0));
+        return `<button class="qchip press" onclick="applyMealTpl('${t.id}')">${esc(t.name)}<em>${num(k)} kcal</em></button>`;
+      });
+      if(last) chips.push(`<button class="qchip press alt" onclick="copyLastMeal('${m}')">Comme le ${fmtShort(last.k)}<em>${num(Math.round(last.items.reduce((a,x)=>a+(x.kcal||0),0)))} kcal</em></button>`);
+      if(chips.length) quick = `<div class="qrow">${chips.join("")}</div>`;
+    }else{
+      quick = `<div class="qrow"><button class="qchip press ghost" onclick="saveMealTpl('${m}')">Enregistrer ce repas</button></div>`;
+    }
+    return row + list + quick;
   }).join("");
 
   const last = lastActivity();
@@ -1948,14 +1978,25 @@ function renderAddList(){
 
   const p = P(), fav = new Set(p.favs||[]), rec = recentList(addMeal);
   let html = "";
+  const tpls = tplFor(addMeal), last = lastMealDay(addMeal);
+  if(tpls.length || last){
+    html += `<div class="rayon" style="position:static">Mes repas</div><div class="qrow" style="margin-bottom:4px">`
+      + tpls.map(t=>{
+          const k = Math.round(t.items.reduce((a,x)=>a+(x.kcal||0),0));
+          return `<span class="qchip big"><button class="press" onclick="applyMealTpl('${t.id}')">${esc(t.name)}<em>${t.items.length} aliment${t.items.length>1?"s":""} · ${num(k)} kcal</em></button><button class="press del" title="Supprimer" onclick="delMealTpl('${t.id}')">×</button></span>`;
+        }).join("")
+      + (last ? `<button class="qchip press alt" onclick="closeModal('m-add');copyLastMeal('${addMeal}')">Comme le ${fmtShort(last.k)}<em>${last.items.length} aliment${last.items.length>1?"s":""}</em></button>` : "")
+      + `</div>`;
+  }
   if(rec.length){
-    html += `<div class="rayon" style="position:static">Vos habitudes</div>` + rec.map(r=>{
-      const k = recentKey(r), isF = fav.has(k);
+    html += `<div class="rayon" style="position:static">Vos habitudes — une tape, même quantité</div>` + rec.map(r=>{
+      const k = recentKey(r), isF = fav.has(k), kk = k.replace(/'/g,"\\'");
       return `<div class="fl" style="align-items:center">
-        <button class="press" style="flex:1;display:flex;align-items:center;gap:9px;background:none;border:0;padding:0;font-family:inherit;text-align:left;min-width:0" onclick="pickRecent('${k.replace(/'/g,"\\'")}')">
+        <button class="press" style="flex:1;display:flex;align-items:center;gap:9px;background:none;border:0;padding:0;font-family:inherit;text-align:left;min-width:0" onclick="pickRecent('${kk}')">
           ${qDot(r)}<div class="t" style="min-width:0"><b>${esc(r.n)}</b><span>${esc(r.q||"")} · ${num(r.kcal||0)} kcal</span></div>
         </button>
-        <button class="press" title="Favori" style="width:34px;height:34px;border-radius:11px;background:${isF?"var(--sun-soft)":"var(--surface2)"};color:${isF?"var(--sun-ink)":"var(--muted)"};flex:none" onclick="toggleFav('${k.replace(/'/g,"\\'")}')">${isF?"★":"☆"}</button>
+        <button class="press" title="Changer la quantité" style="width:34px;height:34px;border-radius:11px;background:var(--surface2);color:var(--muted);flex:none;font-size:17px" onclick="tweakRecent('${kk}')">⋯</button>
+        <button class="press" title="Favori" style="width:34px;height:34px;border-radius:11px;background:${isF?"var(--sun-soft)":"var(--surface2)"};color:${isF?"var(--sun-ink)":"var(--muted)"};flex:none" onclick="toggleFav('${kk}')">${isF?"★":"☆"}</button>
       </div>`;
     }).join("");
   }
@@ -2006,16 +2047,84 @@ function pickFood(i){
   picked = {n:f[0], per100:{kcal:f[2],prot:f[3],fib:f[4]}, unit:f[5], g:f[6], sug100:f[8], sat100:f[9], nat:f[10]};
   showPick();
 }
+/* Une tape = on rejoue exactement la même chose, même quantité. C'est le geste
+   que doit demander un petit-déjeuner qui ne change jamais. */
 function pickRecent(k){
   const r = (P().recents||{})[k]; if(!r) return;
-  /* Si on connaît le détail au 100 g, on rouvre le sélecteur pour ajuster ; sinon on rejoue tel quel. */
-  if(r.per && r.g){
-    picked = {n:r.n, per100:r.per, unit:r.un||"part", g:r.uw||r.g, sug100:r.per.sug, sat100:r.per.sat, code:r.code, ns:r.ns, nova:r.nova, add:r.add};
-    showPick(r.g, r.uw);
+  const e = r.e ? JSON.parse(JSON.stringify(r.e))
+                : {n:r.n, q:r.q||"portion", kcal:r.kcal||0, prot:r.prot||0, fib:r.fib||0, sug:r.sug, sat:r.sat};
+  pushEntry(addMeal, e);
+  closeModal("m-add");
+}
+/* Le second bouton, pour la fois où la quantité change. */
+function tweakRecent(k){
+  const r = (P().recents||{})[k]; if(!r) return;
+  const e = r.e;
+  if(e && e.per && e.g){
+    picked = {n:e.n, per100:e.per, unit:e.un||"part", g:e.uw||e.g, sug100:e.per.sug, sat100:e.per.sat,
+              code:e.code, ns:e.ns, nova:e.nova, add:e.add, nat:e.nat};
+    showPick(e.g, e.uw);
     return;
   }
-  pushEntry(addMeal, {n:r.n, q:r.q||"portion", kcal:r.kcal||0, prot:r.prot||0, fib:r.fib||0, sug:r.sug, sat:r.sat});
-  closeModal("m-add");
+  toast("Cet aliment n'a pas de quantité ajustable — ajoute-le puis modifie la ligne");
+}
+
+/* ---------- les repas enregistrés ---------- */
+function mealLabel(m){ return (MEALS.find(x=>x[0]===m)||["","Repas"])[1]; }
+function tplFor(m){ return (S.mealTpl||[]).filter(t=>t.meal===m); }
+function saveMealTpl(m){
+  const items = (dayOf(P(),curDay).meals[m]||[]);
+  if(!items.length) return toast("Ce repas est vide");
+  const def = mealLabel(m) + " habituel";
+  const name = (prompt("Nom de ce repas enregistré :", def) || "").trim();
+  if(!name) return;
+  S.mealTpl = S.mealTpl || [];
+  const ex = S.mealTpl.find(t=>t.meal===m && t.name.toLowerCase()===name.toLowerCase());
+  const rec = {id: ex ? ex.id : "t"+Date.now().toString(36), name, meal:m,
+               items: JSON.parse(JSON.stringify(items)), updated: Date.now()};
+  S.mealTpl = S.mealTpl.filter(t=>t.id!==rec.id);
+  S.mealTpl.push(rec);
+  save(false); renderToday();
+  toast("« " + name + " » enregistré");
+}
+function applyMealTpl(id){
+  const t = (S.mealTpl||[]).find(x=>x.id===id); if(!t) return;
+  const d = ensureDay(P(), curDay);
+  for(const it of t.items){
+    const e = JSON.parse(JSON.stringify(it));
+    d.meals[t.meal].push(e);
+    touchRecent(e, t.meal);
+  }
+  save(); renderToday(); renderTop(); checkBadges(); closeModal("m-add");
+  toast(t.name + " · " + t.items.length + " aliment" + (t.items.length>1?"s":"") + " ajouté" + (t.items.length>1?"s":""));
+}
+function delMealTpl(id){
+  const t = (S.mealTpl||[]).find(x=>x.id===id); if(!t) return;
+  if(!confirm("Supprimer le repas enregistré « " + t.name + " » ?")) return;
+  S.mealTpl = S.mealTpl.filter(x=>x.id!==id);
+  save(false); renderToday(); renderAddList();
+}
+
+/* ---------- reprendre le même repas qu'un jour précédent ---------- */
+function lastMealDay(m){
+  const p = P();
+  for(let i=1; i<=14; i++){
+    const k = addDays(curDay, -i);
+    const items = (p.days[k]||{}).meals?.[m];
+    if(items && items.length) return {k, items};
+  }
+  return null;
+}
+function copyLastMeal(m){
+  const src = lastMealDay(m); if(!src) return;
+  const d = ensureDay(P(), curDay);
+  for(const it of src.items){
+    const e = JSON.parse(JSON.stringify(it));
+    d.meals[m].push(e);
+    touchRecent(e, m);
+  }
+  save(); renderToday(); renderTop(); checkBadges();
+  toast(mealLabel(m) + " du " + fmtShort(src.k) + " repris");
 }
 function pickProduct(code){
   const pr = (S.products||[]).find(x=>x.code===code); if(!pr) return;
@@ -3456,6 +3565,14 @@ function mergeStates(a,b){
     seen.add(p.code); prods.push(p);
   }
   out.products = prods.slice(0, MAX_PRODUCTS);
+
+  /* Repas enregistrés : union par identifiant. */
+  const tpl = new Map((a.mealTpl||[]).map(t=>[t.id,t]));
+  for(const t of (b.mealTpl||[])){
+    const cur = tpl.get(t.id);
+    if(!cur || (t.updated||0) > (cur.updated||0)) tpl.set(t.id, t);
+  }
+  out.mealTpl = [...tpl.values()];
 
   /* Historique du duel : union par semaine. */
   const weeks = new Map((a.duelLog||[]).map(e=>[e.week,e]));
