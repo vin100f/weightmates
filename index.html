@@ -984,7 +984,7 @@ const FOODS = [
 ["Jambon cru / sec","Protéines",230,27,0,"tranche",20,0,0.5,5.5,0],
 ["Saucisse / merguez","Protéines",300,15,0,"pièce",90,0,0.5,9.5,0],
 ["Saumon","Protéines",200,20,0,"pavé",130,0,0,2.7,0],
-["Cabillaud / colin","Protéines",80,18,0,"portion",150,0,0,0.1,0],
+["Cabillaud / colin","Protéines",80,18,0,"filet",150,0,0,0.1,0],
 ["Thon en boîte au naturel","Protéines",110,25,0,"boîte égouttée",110,0,0,0.3,0],
 ["Sardines / maquereau boîte","Protéines",200,23,0,"boîte",90,0,0,2.8,0],
 ["Crevettes","Protéines",95,20,0,"portion",120,0,0,0.2,0],
@@ -1179,10 +1179,10 @@ const FOODS = [
 ["Foie de veau poêlé","Protéines",180,24,0,"tranche",120,0,0,2.3,0],
 ["Boudin noir","Protéines",320,14,0,"portion",120,0,1,11,0],
 ["Andouillette","Protéines",290,18,0,"pièce",130,0,0,9,0],
-["Bar / dorade (filet)","Protéines",100,21,0,"filet",140,0,0,0.5,0],
+["Bar / dorade","Protéines",100,21,0,"filet",140,0,0,0.5,0],
 ["Truite","Protéines",130,21,0,"filet",130,0,0,1,0],
 ["Sole / limande","Protéines",90,19,0,"filet",150,0,0,0.3,0],
-["Lotte","Protéines",85,18,0,"portion",150,0,0,0.2,0],
+["Lotte","Protéines",85,18,0,"médaillon",150,0,0,0.2,0],
 ["Saumon fumé","Protéines",180,25,0,"tranche",30,0,0,1.8,0],
 ["Moules (chair cuite)","Protéines",105,16,0,"assiette",150,0,1.5,0.6,0],
 ["Huîtres","Protéines",70,9.5,0,"pièce",15,0,1,0.5,0],
@@ -1214,7 +1214,19 @@ const FOODS = [
 ["Babybel","Laitages",300,23,0,"pièce",20,0,0,16,0],
 ["St Môret","Laitages",205,7.5,0,"c. à s.",30,0,3.5,12,0],
 ["Boursin ail & fines herbes","Laitages",400,6.5,0,"portion",25,0,2,27,0],
-["Philadelphia nature","Laitages",253,5.6,0,"c. à s.",30,0,3.8,16,0]
+["Philadelphia nature","Laitages",253,5.6,0,"c. à s.",30,0,3.8,16,0],
+/* v3.6 — le reste du banc de la poissonnerie. Valeurs pour 100 g de chair cuite
+   (ou égouttée pour les conserves), unité = une pièce telle qu'on l'achète. */
+["Pavé de thon","Protéines",145,28,0,"pavé",150,0,0,0.9,0],
+["Espadon grillé","Protéines",150,26,0,"pavé",150,0,0,1.3,0],
+["Églefin / haddock","Protéines",90,20,0,"filet",150,0,0,0.2,0],
+["Merlan / merlu","Protéines",90,19,0,"filet",150,0,0,0.2,0],
+["Raie","Protéines",95,21,0,"aile",180,0,0,0.2,0],
+["Hareng fumé","Protéines",210,20,0,"filet",80,0,0,3.2,0],
+["Anchois à l'huile","Protéines",200,23,0,"filet",5,0,0,2.8,0],
+["Surimi","Protéines",100,8,0,"bâtonnet",17,0,6,0.2,0],
+["Thon en boîte à l'huile","Protéines",190,24,0,"boîte égouttée",110,0,0,1.5,0],
+["Miettes de crabe","Protéines",85,18,0,"boîte",100,0,0,0.2,0]
 ];
 
 // Activités : kcal par minute pour ~80 kg (ajusté au poids du profil)
@@ -1368,7 +1380,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "3.5";
+const VERSION = "3.6";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -2035,8 +2047,27 @@ function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-
   .replace(/\u0153/g,"oe").replace(/\u00e6/g,"ae").replace(/['\u2019]/g," ")}
 /* Tous les mots de la requ\u00eate, dans n'importe quel ordre : \u00ab veau c\u00f4te \u00bb trouve
    \u00ab C\u00f4te de veau grill\u00e9e \u00bb, et \u00ab cote de veau \u00bb aussi. */
-function qWords(q){ return norm(q).split(/[^a-z0-9]+/).filter(w=>w.length>1); }
-function foodHay(f){ return norm(f[0]) + " " + norm(f[1]); }
+/* « pavé de saumon » : le « de » ne figure dans aucun nom d'aliment, et il suffisait
+   à faire échouer toute la requête. On jette les mots-outils. */
+const STOPW = new Set(["de","du","des","le","la","les","au","aux","un","une","en","et","avec","sans"]);
+function qWords(q){ return norm(q).split(/[^a-z0-9]+/).filter(w=>w.length>1 && !STOPW.has(w)); }
+/* On cherche aussi dans l'unité : « pavé », « filet », « tranche », « pot » sont
+   écrits là, pas dans le nom. */
+function foodHay(f){ return norm(f[0]) + " " + norm(f[1]) + " " + norm(f[5]); }
+/* Les mots de découpe sont indicatifs, pas discriminants : « filet de cabillaud »
+   doit trouver le cabillaud même si son unité s'appelle « portion ». */
+const CUTW = new Set(["pave","filet","darne","tranche","portion","part","morceau","steak","escalope",
+  "cote","cotelette","cuisse","blanc","aiguillette","barre","biscuit","piece","pot","bol","assiette",
+  "poignee","sachet","verre","boite","tranches","filets","parts"]);
+function findFoods(ws){
+  let hits = FOODS.filter(f=>{ const h=foodHay(f); return ws.every(w=>h.includes(w)); });
+  if(!hits.length){
+    const core = ws.filter(w=>!CUTW.has(w));
+    if(core.length && core.length < ws.length)
+      hits = FOODS.filter(f=>{ const h=foodHay(f); return core.every(w=>h.includes(w)); });
+  }
+  return hits;
+}
 
 /* A1 : au repos, la fenêtre montre ce qu'on mange vraiment — favoris et récents d'abord,
    puis les produits scannés, puis la base par catégories. */
@@ -2090,7 +2121,7 @@ function renderBase(){
 function searchFood(){ renderAddList(); }
 function renderSearch(q){
   const ws = qWords(q);
-  const hits = FOODS.filter(f=>{ const h=foodHay(f); return ws.every(w=>h.includes(w)); }).slice(0,40);
+  const hits = findFoods(ws).slice(0,40);
   /* Rien d'exact : on propose les voisins plutôt qu'une page vide. « côte de veau »
      sur une base sans côte de veau doit au moins montrer l'escalope et le rôti. */
   const near = hits.length ? [] : FOODS.filter(f=>{ const h=foodHay(f); return ws.some(w=>w.length>2 && h.includes(w)); }).slice(0,12);
