@@ -1152,7 +1152,39 @@ const FOODS = [
 ["Bœuf à sauter (rumsteck)","Protéines",140,22,0,"portion",130,0,0,2,0],
 ["Lardons de volaille","Protéines",180,18,0,"portion",50,0,0.5,3,0],
 ["Tomates concassées","Libres",32,1.3,1.2,"boîte",400,1,4.5,0.1,1],
-["Vinaigrette légère","Gras & sauces",200,0.5,0,"c. à s.",15,0,4,2,0]
+["Vinaigrette légère","Gras & sauces",200,0.5,0,"c. à s.",15,0,4,2,0],
+/* v3.4 — les pièces de boucherie et la marée. Valeurs pour 100 g de chair cuite,
+   os exclu : le poids unitaire est celui de ce qu'on mange, pas de ce qu'on achète. */
+["Côte de veau grillée","Protéines",170,28,0,"côte (sans os)",180,0,0,2.2,0],
+["Escalope de veau","Protéines",160,30,0,"escalope",140,0,0,1.4,0],
+["Rôti de veau","Protéines",165,30,0,"tranche",120,0,0,1.7,0],
+["Côte de bœuf grillée","Protéines",250,27,0,"part (sans os)",250,0,0,6.5,0],
+["Entrecôte grillée","Protéines",240,26,0,"pièce",220,0,0,6,0],
+["Pavé de bœuf / faux-filet","Protéines",190,29,0,"pavé",180,0,0,3.2,0],
+["Bavette / onglet grillé","Protéines",190,28,0,"pièce",180,0,0,3.5,0],
+["Tartare de bœuf nature","Protéines",150,21,0,"portion",180,0,0,3,0],
+["Côte de porc grillée","Protéines",215,28,0,"côte (sans os)",150,0,0,4,0],
+["Échine de porc grillée","Protéines",250,26,0,"portion",150,0,0,5.5,0],
+["Travers de porc","Protéines",320,25,0,"portion (sans os)",200,0,0,9,0],
+["Côtelette d'agneau grillée","Protéines",280,25,0,"côtelette (sans os)",70,0,0,9,0],
+["Gigot d'agneau rôti","Protéines",210,28,0,"tranche",130,0,0,4.5,0],
+["Magret de canard grillé","Protéines",280,26,0,"demi-magret",150,0,0,6.5,0],
+["Cuisse de canard confite","Protéines",300,27,0,"cuisse (sans os)",160,0,0,7,0],
+["Cuisse de poulet rôtie","Protéines",215,25,0,"cuisse (sans os)",130,0,0,3.6,0],
+["Poulet rôti avec peau","Protéines",220,26,0,"part (sans os)",180,0,0,3.7,0],
+["Lapin rôti","Protéines",170,28,0,"portion (sans os)",150,0,0,2,0],
+["Foie de veau poêlé","Protéines",180,24,0,"tranche",120,0,0,2.3,0],
+["Boudin noir","Protéines",320,14,0,"portion",120,0,1,11,0],
+["Andouillette","Protéines",290,18,0,"pièce",130,0,0,9,0],
+["Bar / dorade (filet)","Protéines",100,21,0,"filet",140,0,0,0.5,0],
+["Truite","Protéines",130,21,0,"filet",130,0,0,1,0],
+["Sole / limande","Protéines",90,19,0,"filet",150,0,0,0.3,0],
+["Lotte","Protéines",85,18,0,"portion",150,0,0,0.2,0],
+["Saumon fumé","Protéines",180,25,0,"tranche",30,0,0,1.8,0],
+["Moules (chair cuite)","Protéines",105,16,0,"assiette",150,0,1.5,0.6,0],
+["Huîtres","Protéines",70,9.5,0,"pièce",15,0,1,0.5,0],
+["Noix de Saint-Jacques","Protéines",90,17,0,"portion",120,0,1,0.2,0],
+["Calamars / encornets grillés","Protéines",100,18,0,"portion",150,0,0,0.6,0]
 ];
 
 // Activités : kcal par minute pour ~80 kg (ajusté au poids du profil)
@@ -1306,7 +1338,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "3.3";
+const VERSION = "3.4";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1967,7 +1999,14 @@ function addTab(t){
   if(t==="food") renderAddList();
   if(t!=="food") stopScan();
 }
-function norm(s){return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}
+/* NFD ne d\u00e9compose pas les ligatures : sans ce remplacement, \u00ab boeuf \u00bb et \u00ab oeuf \u00bb
+   tap\u00e9s au clavier ne trouvaient rien, la base \u00e9crivant \u00ab B\u0153uf \u00bb et \u00ab \u0152uf \u00bb. */
+function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .replace(/\u0153/g,"oe").replace(/\u00e6/g,"ae").replace(/['\u2019]/g," ")}
+/* Tous les mots de la requ\u00eate, dans n'importe quel ordre : \u00ab veau c\u00f4te \u00bb trouve
+   \u00ab C\u00f4te de veau grill\u00e9e \u00bb, et \u00ab cote de veau \u00bb aussi. */
+function qWords(q){ return norm(q).split(/[^a-z0-9]+/).filter(w=>w.length>1); }
+function foodHay(f){ return norm(f[0]) + " " + norm(f[1]); }
 
 /* A1 : au repos, la fenêtre montre ce qu'on mange vraiment — favoris et récents d'abord,
    puis les produits scannés, puis la base par catégories. */
@@ -2020,16 +2059,29 @@ function renderBase(){
 /* A2 : une seule recherche. La base d'abord, l'en-ligne proposé dessous. */
 function searchFood(){ renderAddList(); }
 function renderSearch(q){
-  const hits = FOODS.filter(f=>norm(f[0]).includes(q)).slice(0,40);
-  const prods = (S.products||[]).filter(pr=>norm(pr.n).includes(q)).slice(0,6);
+  const ws = qWords(q);
+  const hits = FOODS.filter(f=>{ const h=foodHay(f); return ws.every(w=>h.includes(w)); }).slice(0,40);
+  /* Rien d'exact : on propose les voisins plutôt qu'une page vide. « côte de veau »
+     sur une base sans côte de veau doit au moins montrer l'escalope et le rôti. */
+  const near = hits.length ? [] : FOODS.filter(f=>{ const h=foodHay(f); return ws.some(w=>w.length>2 && h.includes(w)); }).slice(0,12);
+  const prods = (S.products||[]).filter(pr=>{ const h=norm(pr.n); return ws.every(w=>h.includes(w)); }).slice(0,6);
+  const brut = (document.getElementById("q").value||"").trim();
   let html = "";
   if(prods.length) html += `<div class="rayon" style="position:static">Mes produits</div>` + prods.map(pr=>
     `<button class="fl press" onclick="pickProduct('${pr.code}')"><div class="t"><b>${esc(pr.n)}</b><span>${Math.round(pr.per100.kcal)} kcal / 100 g</span></div><div class="k">→</div></button>`).join("");
-  html += hits.length
-    ? `<div class="rayon" style="position:static">La base</div>` + foodRows(hits)
-    : `<div class="empty">Rien dans la base pour « ${esc(document.getElementById("q").value.trim())} ».</div>`;
+  if(hits.length) html += `<div class="rayon" style="position:static">La base</div>` + foodRows(hits);
+  else if(near.length) html += `<div class="empty" style="padding-bottom:2px">Rien d'exact pour « ${esc(brut)} ». Dans le même esprit :</div>` + foodRows(near);
+  else html += `<div class="empty">Rien dans la base pour « ${esc(brut)} ».</div>`;
   html += `<button class="btn g sm w press" style="margin-top:10px" onclick="offSearch()">Chercher aussi en ligne</button><div id="qlist"></div>`;
+  html += `<button class="btn sm w press" style="margin-top:6px;background:var(--surface2);color:var(--ink)" onclick="freeFromSearch()">Le saisir à la main</button>`;
   document.getElementById("alist").innerHTML = html;
+}
+/* Dernier recours : on bascule sur l'onglet Libre avec le nom déjà tapé. */
+function freeFromSearch(){
+  const brut = (document.getElementById("q").value||"").trim();
+  addTab("free");
+  const n = document.getElementById("fr-n"); if(n) n.value = brut;
+  const k = document.getElementById("fr-k"); if(k) k.focus();
 }
 function foodRows(arr){
   return arr.map(f=>{
@@ -2760,7 +2812,7 @@ function renderRecipes(){
     if(rfilter==="mine") return mine.has(r.id);
     return true;
   });
-  if(q.length >= 2) list = list.filter(r => norm(r.n).includes(q) || r.ing.some(i=>norm(i[0]).includes(q)));
+  if(q.length >= 2){ const ws=qWords(q); list = list.filter(r => { const h=norm(r.n)+" "+r.ing.map(i=>norm(i[0])).join(" "); return ws.every(w=>h.includes(w)); }); }
   list = list.filter(r => likeOf(r.id) !== -1 || rfilter==="all" || rfilter==="mine");
   document.getElementById("rcount").textContent = list.length + " plat" + (list.length>1?"s":"");
   document.getElementById("rlist").innerHTML = list.length ? list.map(r=>{
@@ -2967,7 +3019,7 @@ function renderPickDish(){
   const q = norm(document.getElementById("pd-q").value.trim());
   const f2 = portionFactor(S.profiles.p2);
   let list = allRecipes().filter(r => pdSlot==="din" ? r.cat!=="dej" : r.cat!=="diner");
-  if(q.length>=2) list = list.filter(r=>norm(r.n).includes(q) || r.ing.some(x=>norm(x[0]).includes(q)));
+  if(q.length>=2){ const ws=qWords(q); list = list.filter(r => { const h=norm(r.n)+" "+r.ing.map(x=>norm(x[0])).join(" "); return ws.every(w=>h.includes(w)); }); }
   list = list.filter(r=>likeOf(r.id)!==-1 || r.id===cur);
   list.sort((a,b)=>(likeOf(b.id))-(likeOf(a.id)) || a.n.localeCompare(b.n,"fr"));
   document.getElementById("pd-list").innerHTML =
