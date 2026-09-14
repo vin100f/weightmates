@@ -269,6 +269,8 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .fl .t span{font-size:11px;font-weight:700;color:var(--muted)}
 .fl .k{font-size:13px;font-weight:900;flex:none}
 .fl.free{border-color:var(--mint-line);background:var(--mint-soft)}
+.chk{display:flex;align-items:flex-start;gap:9px;font-size:12px;font-weight:700;color:var(--muted);line-height:1.45;padding:2px 0}
+.chk input{width:19px;height:19px;flex:none;margin:0;accent-color:var(--acc)}
 .fl.onl{background:var(--acc-soft);border-color:transparent;color:var(--acc);margin-bottom:10px}
 .fl.onl .t span{color:var(--acc);opacity:.75}
 .fl.onl .oic{width:32px;height:32px;border-radius:11px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
@@ -554,8 +556,8 @@ details.fold .in{font-size:13px;font-weight:700;color:var(--muted);padding-top:6
   <div class="h2">Nouveau poids</div>
   <div class="card">
     <div class="grid2">
-      <div class="field" style="margin:0"><label>Poids (kg)</label><input id="win" type="number" step="0.1" inputmode="decimal" placeholder="82,4"></div>
-      <div class="field" style="margin:0"><label>Tour de taille (cm)</label><input id="wwaist" type="number" step="0.5" inputmode="decimal" placeholder="98"></div>
+      <div class="field" style="margin:0"><label>Poids (kg)</label><input id="win" type="text" inputmode="decimal" placeholder="82,4"></div>
+      <div class="field" style="margin:0"><label>Tour de taille (cm)</label><input id="wwaist" type="text" inputmode="decimal" placeholder="98"></div>
     </div>
     <div class="small b muted" style="margin-top:10px"><span class="lnk press" onclick="document.getElementById('wdrow').style.display='';this.parentNode.style.display='none'">Changer la date</span> — par défaut aujourd'hui.</div>
     <div class="field" id="wdrow" style="display:none;margin-top:10px"><label>Date de la pesée</label><input id="wdate" type="date"></div>
@@ -665,10 +667,10 @@ details.fold .in{font-size:13px;font-weight:700;color:var(--muted);padding-top:6
     <div class="grid3">
       <div class="field"><label>Âge</label><input id="f-age" type="number" inputmode="numeric"></div>
       <div class="field"><label>Taille (cm)</label><input id="f-height" type="number" inputmode="numeric"></div>
-      <div class="field"><label>Poids (kg)</label><input id="f-weight" type="number" step="0.1" inputmode="decimal"></div>
+      <div class="field"><label>Poids (kg)</label><input id="f-weight" type="text" inputmode="decimal"></div>
     </div>
     <div class="grid2">
-      <div class="field"><label>Objectif (kg)</label><input id="f-target" type="number" step="0.1" inputmode="decimal"></div>
+      <div class="field"><label>Objectif (kg)</label><input id="f-target" type="text" inputmode="decimal"></div>
       <div class="field"><label>Rythme</label><select id="f-pace" onchange="previewPace()"></select></div>
     </div>
     <div class="field"><label>Activité <b>hors sport</b></label><select id="f-act">
@@ -776,12 +778,35 @@ details.fold .in{font-size:13px;font-weight:700;color:var(--muted);padding-top:6
   </div>
 
   <div id="a-free" style="display:none">
-    <div class="field" style="margin-top:12px"><label>Nom</label><input id="fr-n" type="text" placeholder="Repas chez les parents"></div>
-    <div class="grid3">
-      <div class="field"><label>kcal</label><input id="fr-k" type="number" inputmode="numeric"></div>
-      <div class="field"><label>Protéines g</label><input id="fr-p" type="number" inputmode="numeric"></div>
-      <div class="field"><label>Fibres g</label><input id="fr-f" type="number" inputmode="numeric"></div>
+    <div class="field" style="margin-top:12px"><label>Nom</label><input id="fr-n" type="text" placeholder="Fromage blanc de la ferme"></div>
+
+    <div class="field"><label>Les valeurs ci-dessous sont celles de…</label>
+      <div style="display:flex;gap:8px">
+        <input id="fr-q" type="text" inputmode="decimal" value="100" style="flex:1;min-width:0">
+        <select id="fr-u" onchange="freeHint()" style="flex:none;width:46%">
+          <option value="g">grammes</option>
+          <option value="ml">millilitres</option>
+          <option value="p">portion (je ne pèse pas)</option>
+        </select>
+      </div>
     </div>
+    <div class="tiny muted" id="fr-hint" style="margin:-6px 0 12px 2px">Recopie le tableau du paquet. La quantité restera modifiable après coup.</div>
+
+    <div class="grid3">
+      <div class="field"><label>kcal</label><input id="fr-k" type="text" inputmode="decimal"></div>
+      <div class="field"><label>Protéines g</label><input id="fr-p" type="text" inputmode="decimal"></div>
+      <div class="field"><label>Fibres g</label><input id="fr-f" type="text" inputmode="decimal"></div>
+    </div>
+
+    <details class="fold" style="margin-bottom:12px"><summary>Sucres et graisses saturées — pour des points justes</summary>
+      <div class="grid2" style="margin-top:10px">
+        <div class="field"><label>Sucres g</label><input id="fr-s" type="text" inputmode="decimal"></div>
+        <div class="field"><label>dont saturées g</label><input id="fr-sat" type="text" inputmode="decimal"></div>
+      </div>
+      <div class="tiny muted" style="margin:-6px 0 8px 2px">Au dos du paquet, pour la même quantité. Sans eux, les points sont un peu optimistes.</div>
+      <label class="chk press"><input id="fr-nat" type="checkbox"><span>Sucres naturels du fruit, du légume ou du lait nature — non pénalisés</span></label>
+    </details>
+
     <button class="btn w press" onclick="addFree()">Ajouter</button>
   </div>
 
@@ -797,17 +822,17 @@ details.fold .in{font-size:13px;font-weight:700;color:var(--muted);padding-top:6
     <div id="pk-u">
       <div class="stepper">
         <button class="press" onclick="pkStep(-1)">−</button>
-        <input id="pkn" type="number" step="0.5" inputmode="decimal" value="1" oninput="pickPreview()">
+        <input id="pkn" type="text" inputmode="decimal" value="1" oninput="pickPreview()">
         <button class="press" onclick="pkStep(1)">+</button>
         <span class="un" id="pkun">part</span>
       </div>
-      <div class="field" style="margin-top:11px"><label id="pkuwlab">Poids d'une part (g)</label><input id="pkuw" type="number" inputmode="numeric" oninput="pickPreview()"></div>
+      <div class="field" style="margin-top:11px"><label id="pkuwlab">Poids d'une part (g)</label><input id="pkuw" type="text" inputmode="decimal" oninput="pickPreview()"></div>
       <div class="tiny muted b" id="pkhint" style="margin:-4px 0 10px"></div>
     </div>
 
     <div id="pk-g" style="display:none">
       <div class="qty" id="pkqty"></div>
-      <div class="field"><label>Quantité (g ou ml)</label><input id="pkg" type="number" inputmode="numeric" oninput="pickPreview()"></div>
+      <div class="field"><label>Quantité (g ou ml)</label><input id="pkg" type="text" inputmode="decimal" oninput="pickPreview()"></div>
     </div>
 
     <div class="pkres" id="pkcal"></div>
@@ -871,13 +896,13 @@ details.fold .in{font-size:13px;font-weight:700;color:var(--muted);padding-top:6
   </div>
   <div class="small b" style="margin-top:4px">Pour <b>une</b> portion — l'appli ajuste ensuite selon le profil.</div>
   <div class="grid3">
-    <div class="field"><label>kcal</label><input id="mr-k" type="number" inputmode="numeric"></div>
-    <div class="field"><label>Protéines g</label><input id="mr-p" type="number" inputmode="numeric"></div>
-    <div class="field"><label>Fibres g</label><input id="mr-f" type="number" inputmode="numeric"></div>
+    <div class="field"><label>kcal</label><input id="mr-k" type="text" inputmode="decimal"></div>
+    <div class="field"><label>Protéines g</label><input id="mr-p" type="text" inputmode="decimal"></div>
+    <div class="field"><label>Fibres g</label><input id="mr-f" type="text" inputmode="decimal"></div>
   </div>
   <div class="grid2">
-    <div class="field"><label>Sucres ajoutés g <span class="tiny muted">facultatif</span></label><input id="mr-sug" type="number" inputmode="numeric"></div>
-    <div class="field"><label>Graisses saturées g <span class="tiny muted">facultatif</span></label><input id="mr-sat" type="number" inputmode="numeric"></div>
+    <div class="field"><label>Sucres ajoutés g <span class="tiny muted">facultatif</span></label><input id="mr-sug" type="text" inputmode="decimal"></div>
+    <div class="field"><label>Graisses saturées g <span class="tiny muted">facultatif</span></label><input id="mr-sat" type="text" inputmode="decimal"></div>
   </div>
   <div class="field"><label>Ingrédients — un par ligne : nom ; quantité ; unité</label><textarea id="mr-ing" rows="5" placeholder="Blanc de poulet ; 150 ; g
 Courgette ; 120 ; g
@@ -1380,7 +1405,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "3.6";
+const VERSION = "3.7";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -2299,14 +2324,17 @@ function showPick(gPrefill, uwPrefill){
   document.getElementById("pkqty").innerHTML = "";
   document.getElementById("pkg").value = gPrefill || uw || 100;
 
-  pkMode(uw ? "u" : (picked.code ? "u" : "g"));
+  /* Un aliment saisi au poids (« 150 g de fromage blanc ») se rouvre en grammes :
+     « 1 part de 150 g » n'aurait aucun sens pour lui. */
+  const auPoids = picked.unit === "g" || picked.unit === "ml";
+  pkMode(auPoids ? "g" : (uw ? "u" : (picked.code ? "u" : "g")));
   document.getElementById("pkbtn").textContent = editing ? "Enregistrer la modification" : "Ajouter au repas";
   document.getElementById("a-pick").scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 function pickGrams(){
-  if(pkModeCur === "g") return +document.getElementById("pkg").value||0;
-  const n = parseFloat((document.getElementById("pkn").value||"").replace(",","."))||0;
-  const uw = +document.getElementById("pkuw").value||0;
+  if(pkModeCur === "g") return numFR("pkg")||0;
+  const n = numFR("pkn")||0;
+  const uw = numFR("pkuw")||0;
   return Math.round(n*uw);
 }
 function pickPreview(){
@@ -2325,7 +2353,7 @@ function pickPreview(){
 }
 function pickLabel(g){
   if(pkModeCur === "g") return g + " g";
-  const n = parseFloat((document.getElementById("pkn").value||"").replace(",","."))||1;
+  const n = numFR("pkn")||1;
   const u = picked.unit || "part";
   const plural = n > 1 && !/^(c\. à|g|ml)/.test(u) ? u + "s" : u;
   return (n%1 ? n.toFixed(1).replace(".",",") : n) + " " + plural + " (" + g + " g)";
@@ -2333,11 +2361,11 @@ function pickLabel(g){
 function confirmPick(){
   const g = pickGrams();
   if(!g || !picked) return toast("Indique une quantité");
-  if(pkModeCur === "u") rememberUnitWeight(picked.n, +document.getElementById("pkuw").value||0);
+  if(pkModeCur === "u") rememberUnitWeight(picked.n, numFR("pkuw")||0);
   const e = {n:picked.n, q:pickLabel(g), g,
              kcal:picked.per100.kcal*g/100, prot:picked.per100.prot*g/100, fib:picked.per100.fib*g/100,
              per:{kcal:picked.per100.kcal, prot:picked.per100.prot, fib:picked.per100.fib},
-             un:picked.unit, uw:+document.getElementById("pkuw").value||picked.g||null};
+             un:picked.unit, uw:numFR("pkuw")||picked.g||null};
   if(picked.sug100 != null){ e.sug = picked.sug100*g/100; e.per.sug = picked.sug100; }
   if(picked.nat) e.nat = 1;                     /* sucres du fruit, du légume ou du laitage nature */
   e.sugf = picked.nat ? 0 : (e.sug != null ? e.sug : 0);
@@ -2371,20 +2399,24 @@ function editEntry(meal, i){
     g = m ? parseFloat(m[1].replace(",",".")) : null;
     if(g && g>0) per = {kcal:e.kcal/g*100, prot:e.prot/g*100, fib:e.fib/g*100};
   }
-  if(!per || !g){                              /* saisie libre : on renvoie vers l'onglet Libre */
+  if(!per || !g){                              /* saisie libre sans poids : on rouvre l'onglet Libre */
     editing = {meal, i, day:curDay, free:true};
     addMeal = meal; openAdd(meal); addTab("free");
+    const put = (id,v)=>{ const el=document.getElementById(id); if(el) el.value = v==null ? "" : fmtNum(v); };
     document.getElementById("fr-n").value = e.n;
-    document.getElementById("fr-k").value = Math.round(e.kcal);
-    document.getElementById("fr-p").value = Math.round(e.prot);
-    document.getElementById("fr-f").value = Math.round(e.fib);
+    document.getElementById("fr-q").value = fmtNum(e.fq || 1);
+    document.getElementById("fr-u").value = e.fu || "p";
+    put("fr-k", e.kcal); put("fr-p", e.prot); put("fr-f", e.fib);
+    put("fr-s", e.sug); put("fr-sat", e.sat);
+    const c=document.getElementById("fr-nat"); if(c) c.checked = !!e.nat;
+    freeHint();
     return;
   }
   editing = {meal, i, day:curDay};
   addMeal = meal;
   openAdd(meal);
   picked = {n:e.n, per100:per, unit:e.un||"part", g:e.uw||g, sug100:per.sug, sat100:per.sat,
-            code:e.code, ns:e.ns, nova:e.nova, add:e.add};
+            code:e.code, ns:e.ns, nova:e.nova, add:e.add, nat:e.nat};
   showPick(g, e.uw||null);
 }
 
@@ -2411,13 +2443,13 @@ function openRecipePortion(e){
   document.getElementById("pkbtn").onclick = ()=>saveRecipePortion(e);
 }
 function pickPreviewRecipe(e){
-  const mult = parseFloat((document.getElementById("pkn").value||"1").replace(",","."))||1;
+  const mult = numFR("pkn")||1;
   const base = e.base || {kcal:e.kcal/(e.mult||1), prot:e.prot/(e.mult||1), fib:e.fib/(e.mult||1)};
   const k = Math.round(base.kcal*mult);
   document.getElementById("pkcal").innerHTML = `${qDot({kcal:k,prot:base.prot*mult,fib:base.fib*mult})}<b>${num(k)} kcal</b><span>${Math.round(base.prot*mult)} g protéines · ${Math.round(base.fib*mult)} g fibres</span>`;
 }
 function saveRecipePortion(e){
-  const mult = parseFloat((document.getElementById("pkn").value||"1").replace(",","."))||1;
+  const mult = numFR("pkn")||1;
   const base = e.base || {kcal:e.kcal/(e.mult||1), prot:e.prot/(e.mult||1), fib:e.fib/(e.mult||1), sug:(e.sug||0)/(e.mult||1), sat:(e.sat||0)/(e.mult||1), sugf:(e.sugf||0)/(e.mult||1)};
   const d = ensureDay(P(), curDay);
   d.meals[editingRecipe.meal][editingRecipe.i] = {
@@ -2434,21 +2466,62 @@ function saveRecipePortion(e){
   document.getElementById("pkn").oninput = pickPreview;
   save(); renderToday(); renderTop(); closeModal("m-add"); toast("Portion modifiée");
 }
+/* Le clavier iPhone en mode « numeric » n'a pas de virgule, et un input[type=number]
+   refuse « 7,8 ». D'où des champs texte et une lecture qui accepte les deux écritures. */
+/* Affichage à la française, sans zéros inutiles : 7,8 et non 7.80 */
+function fmtNum(x){
+  if(x == null || !isFinite(x)) return "";
+  return (Math.round(x*10)/10).toString().replace(".", ",");
+}
+function numFR(id){
+  const v = (document.getElementById(id)||{}).value;
+  if(v == null || String(v).trim() === "") return null;
+  const x = parseFloat(String(v).replace(",", ".").replace(/\s/g, ""));
+  return isFinite(x) ? x : null;
+}
+const FREE_IDS = ["fr-n","fr-k","fr-p","fr-f","fr-s","fr-sat"];
+function freeReset(){ FREE_IDS.forEach(id=>{const el=document.getElementById(id); if(el) el.value="";});
+  const c=document.getElementById("fr-nat"); if(c) c.checked=false;
+  const q=document.getElementById("fr-q"); if(q) q.value="100"; }
+function freeHint(){
+  const u = document.getElementById("fr-u").value;
+  const el = document.getElementById("fr-hint"); if(!el) return;
+  el.textContent = u === "p"
+    ? "Une portion telle que tu l'as mangée. Tu pourras en remettre une demie ou deux."
+    : "Recopie le tableau du paquet. La quantité restera modifiable après coup.";
+}
 function addFree(){
-  const n=document.getElementById("fr-n").value.trim()||"Saisie libre";
-  const k=+document.getElementById("fr-k").value||0;
+  const n = document.getElementById("fr-n").value.trim() || "Saisie libre";
+  const k = numFR("fr-k");
   if(!k) return toast("Indique au moins les calories");
-  const e = {n, q:"estimation", kcal:k, prot:+document.getElementById("fr-p").value||0, fib:+document.getElementById("fr-f").value||0};
+  const qty = numFR("fr-q") || 100, unit = document.getElementById("fr-u").value;
+  const prot = numFR("fr-p") || 0, fib = numFR("fr-f") || 0;
+  const sug = numFR("fr-s"), sat = numFR("fr-sat");
+  let e;
+  if(unit === "p"){
+    /* Pas de poids, donc rien à mettre à l'échelle : la ligne se remodifie dans
+       ce même formulaire, pré-rempli. */
+    e = {n, q:"1 portion", kcal:k, prot, fib, fq:qty, fu:unit};
+  }else{
+    /* Avec un poids, on enregistre comme un aliment de la base — valeurs pour 100 g
+       et grammes consommés. C'est ce qui rend la quantité modifiable ensuite. */
+    e = {n, q: qty + " " + unit, g: qty, un: unit, uw: null, kcal:k, prot, fib, fq:qty, fu:unit,
+         per: {kcal:k/qty*100, prot:prot/qty*100, fib:fib/qty*100,
+               sug: sug!=null ? sug/qty*100 : null, sat: sat!=null ? sat/qty*100 : null}};
+  }
+  const nat = (document.getElementById("fr-nat")||{}).checked ? 1 : 0;
+  if(sug != null){ e.sug = sug; e.sugf = nat ? 0 : sug; if(nat) e.nat = 1; if(e.per) e.per.sug = sug/qty*100; }
+  if(sat != null) e.sat = sat;
   if(editing){
     const d = ensureDay(P(), editing.day || curDay);
     d.meals[editing.meal][editing.i] = e;
     editing = null;
-    ["fr-n","fr-k","fr-p","fr-f"].forEach(id=>document.getElementById(id).value="");
+    freeReset();
     save(); renderToday(); renderTop(); closeModal("m-add"); toast("Modifié");
     return;
   }
   pushEntry(addMeal, e);
-  ["fr-n","fr-k","fr-p","fr-f"].forEach(id=>document.getElementById(id).value="");
+  freeReset();
   closeModal("m-add");
 }
 
@@ -2659,8 +2732,8 @@ function addSteps(){
 
 /* ===================== POIDS ===================== */
 function addWeight(){
-  const kg = +document.getElementById("win").value;
-  const waist = +document.getElementById("wwaist").value||null;
+  const kg = numFR("win");
+  const waist = numFR("wwaist");
   const d = document.getElementById("wdate").value || todayKey();
   if(!kg) return toast("Indique un poids");
   const p = P();
@@ -2927,7 +3000,7 @@ function openMyRecipe(id){
 }
 function saveMyRecipe(){
   const n = document.getElementById("mr-n").value.trim();
-  const kcal = +document.getElementById("mr-k").value||0;
+  const kcal = numFR("mr-k")||0;
   if(!n) return toast("Il faut un nom");
   if(!kcal) return toast("Il faut au moins les calories d'une portion");
   const ing = document.getElementById("mr-ing").value.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
@@ -2939,8 +3012,8 @@ function saveMyRecipe(){
   const rec = {
     id, n, t:+document.getElementById("mr-t").value||30,
     cat:document.getElementById("mr-cat").value, tags:["à nous"],
-    nut:[kcal, +document.getElementById("mr-p").value||0, +document.getElementById("mr-f").value||0,
-         +document.getElementById("mr-sug").value||0, +document.getElementById("mr-sat").value||0, +document.getElementById("mr-sug").value||0],
+    nut:[kcal, numFR("mr-p")||0, numFR("mr-f")||0,
+         numFR("mr-sug")||0, numFR("mr-sat")||0, numFR("mr-sug")||0],
     ing: ing.length?ing:[["À compléter",1,"pièce"]], steps: steps.length?steps:["À compléter."],
     e:"🍳", updated: Date.now()
   };
@@ -3464,8 +3537,8 @@ function previewPace(){
   const p = Object.assign({}, P(), {
     age:+document.getElementById("f-age").value||null,
     height:+document.getElementById("f-height").value||null,
-    weight:+document.getElementById("f-weight").value||null,
-    target:+document.getElementById("f-target").value||null,
+    weight:numFR("f-weight"),
+    target:numFR("f-target"),
     pace:+document.getElementById("f-pace").value||500,
     act:+document.getElementById("f-act").value||1.2,
     sex:document.getElementById("f-sex").value
@@ -3546,8 +3619,8 @@ function saveProfile(){
   p.sex = document.getElementById("f-sex").value;
   p.age = +document.getElementById("f-age").value||null;
   p.height = +document.getElementById("f-height").value||null;
-  p.weight = +document.getElementById("f-weight").value||null;
-  p.target = +document.getElementById("f-target").value||null;
+  p.weight = numFR("f-weight");
+  p.target = numFR("f-target");
   p.pace = +document.getElementById("f-pace").value||500;
   p.act = +document.getElementById("f-act").value||1.2;
   const before = p.budget ? p.budget.kcal : null;
