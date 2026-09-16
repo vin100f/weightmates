@@ -282,6 +282,26 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .ry .v{display:block;font-size:17px;font-weight:900;color:var(--ink);line-height:1.1}
 .ry .l{display:block;font-size:10.5px;font-weight:800;color:var(--muted);margin-top:2px;line-height:1.35}
 .rythme .tiny{line-height:1.5;font-weight:700}
+/* v3.9 — « Propose-moi un repas » */
+.ideabtn{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:var(--acc-soft);border:0;border-radius:18px;padding:13px 15px;margin:4px 0 12px;font-family:inherit}
+.ideabtn .ic{width:38px;height:38px;border-radius:13px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:19px;flex:none}
+.ideabtn .tx{flex:1;min-width:0}
+.ideabtn .tx b{display:block;font-size:13.5px;font-weight:900;color:var(--acc);line-height:1.3}
+.ideabtn .tx span{display:block;font-size:11.5px;font-weight:800;color:var(--acc);opacity:.75;margin-top:2px}
+.ideabtn .go{font-size:17px;font-weight:900;color:var(--acc);flex:none}
+.ideabud{display:flex;gap:8px;margin:12px 0 8px}
+.ideabud>div{flex:1;background:var(--surface2);border-radius:14px;padding:10px 12px}
+.ideabud .v{display:block;font-size:19px;font-weight:900;color:var(--ink);line-height:1.1}
+.ideabud .l{display:block;font-size:10.5px;font-weight:800;color:var(--muted);margin-top:2px}
+.cours{background:var(--surface2);border-radius:15px;padding:11px 13px;margin-top:9px;position:relative}
+.cours .lab{font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin-bottom:3px}
+.cours .nm{font-size:14px;font-weight:900;color:var(--ink);line-height:1.3;padding-right:74px}
+.cours .det{font-size:11px;font-weight:700;color:var(--muted);margin-top:3px;line-height:1.45;padding-right:74px}
+.cours .kc{position:absolute;top:11px;right:13px;text-align:right;font-size:13px;font-weight:900;color:var(--ink)}
+.cours .kc em{display:block;font-style:normal;font-size:10.5px;font-weight:800;color:var(--muted);margin-top:1px}
+.ideatot{margin-top:11px;background:var(--mint-soft);border-radius:14px;padding:11px 13px}
+.ideatot b{display:block;font-size:14px;font-weight:900;color:var(--mint-ink)}
+.ideatot span{display:block;font-size:11.5px;font-weight:700;color:var(--mint-ink);opacity:.82;margin-top:3px;line-height:1.5}
 .chk{display:flex;align-items:flex-start;gap:9px;font-size:12px;font-weight:700;color:var(--muted);line-height:1.45;padding:2px 0}
 .chk input{width:19px;height:19px;flex:none;margin:0;accent-color:var(--acc)}
 .fl.onl{background:var(--acc-soft);border-color:transparent;color:var(--acc);margin-bottom:10px}
@@ -539,6 +559,7 @@ details.fold .in{font-size:13px;font-weight:700;color:var(--muted);padding-top:6
   <div id="chalbox"></div>
   <div id="rythme"></div>
 
+  <div id="ideabtn"></div>
   <div class="h2">Repas du jour <span class="lnk" id="daytotal"></span></div>
   <div id="meals"></div>
 
@@ -930,6 +951,18 @@ Ajouter le poulet et les épices."></textarea></div>
 </div></div>
 
 <!-- =================== MODALE : CHOIX DU PLAT =================== -->
+<div class="modal" id="m-idea"><div class="sheet">
+  <div class="grab"></div>
+  <button class="x" onclick="closeModal('m-idea')">×</button>
+  <h2 id="ideatitle">Repas sur mesure</h2>
+  <div id="ideahead"></div>
+  <div id="ideabody"></div>
+  <div class="grid2" style="margin-top:14px">
+    <button class="btn g sm press" onclick="nextIdea()">Une autre idée</button>
+    <button class="btn sm press" id="ideago" onclick="logIdea()">J'ai mangé ça</button>
+  </div>
+</div></div>
+
 <div class="modal" id="m-pickdish"><div class="sheet">
   <div class="grab"></div>
   <button class="x" onclick="closeModal('m-pickdish')">×</button>
@@ -1324,6 +1357,51 @@ const RECIPES = [
 
 const REMOJI={r1:"🍋",r2:"🐟",r3:"🌶️",r4:"🥦",r5:"🍳",r6:"🍛",r7:"🥘",r8:"🥗",r9:"🍠",r10:"🍝",r11:"🍲",r12:"🌯",r13:"🧀",r14:"🍅",r15:"🥚"};
 const MEMOJI={pdj:"☕",dej:"🥪",din:"🍽️",ext:"🍷"};
+/* ===== v3.9 — les briques de « Propose-moi un repas » =====
+   Entrées, plats simples et desserts, décrits par leurs ingrédients : la valeur
+   nutritionnelle est calculée depuis FOODS, jamais saisie à la main. Même règle
+   que pour les recettes. */
+const ENTREES = [
+  {n:"Salade verte et tomate", ing:[["Salade verte",80],["Tomate",100],["Vinaigrette légère",15]]},
+  {n:"Soupe de légumes maison", ing:[["Soupe de légumes maison",300]]},
+  {n:"Crudités carotte-concombre", ing:[["Carotte",80],["Concombre",120],["Vinaigrette légère",10]]},
+  {n:"Betterave et œuf dur", ing:[["Betterave cuite",100],["Œuf",55]]},
+  {n:"Melon", ing:[["Pastèque / melon",200]]},
+  {n:"Poireaux vinaigrette", ing:[["Poireau",150],["Vinaigrette légère",12]]},
+  {n:"Champignons poêlés à l'ail", ing:[["Champignons",150],["Huile d'olive",5]]},
+  {n:"Radis croquants", ing:[["Radis",100],["Beurre",8]]},
+  {n:"Tomate-mozzarella", ing:[["Tomate",150],["Mozzarella",60],["Huile d'olive",5]]},
+  {n:"Endives et pamplemousse", ing:[["Endive",120],["Pamplemousse",150]]},
+  {n:"Demi-avocat au citron", ing:[["Avocat",80]]},
+  {n:"Bouillon et crudités", ing:[["Soupe de légumes maison",250],["Carotte",60]]}
+];
+const DESSERTS = [
+  {n:"Yaourt nature", ing:[["Yaourt nature",125]]},
+  {n:"Fromage blanc nature", ing:[["Fromage blanc 0 %",100]]},
+  {n:"Une pomme", ing:[["Pomme",150]]},
+  {n:"Une poire", ing:[["Poire",160]]},
+  {n:"Deux clémentines", ing:[["Clémentine",120]]},
+  {n:"Fraises", ing:[["Fraises",150]]},
+  {n:"Un kiwi", ing:[["Kiwi",90]]},
+  {n:"Compote sans sucres ajoutés", ing:[["Compote sans sucre ajouté",100]]},
+  {n:"Skyr et framboises", ing:[["Skyr",150],["Framboises",80]]},
+  {n:"Deux carrés de chocolat noir", ing:[["Carré de chocolat noir",20]]},
+  {n:"Ananas frais", ing:[["Ananas",150]]},
+  {n:"Fromage blanc et fraises", ing:[["Fromage blanc 0 %",100],["Fraises",100]]}
+];
+/* Plats du quotidien, pour les soirs où il reste peu — ou peu d'envie de cuisiner. */
+const PLATS_SIMPLES = [
+  {n:"Omelette aux champignons et salade", ing:[["Œuf",110],["Champignons",120],["Salade verte",60],["Huile d'olive",5]]},
+  {n:"Cabillaud vapeur et haricots verts", ing:[["Cabillaud / colin",150],["Haricots verts",200],["Huile d'olive",5]]},
+  {n:"Blanc de poulet et ratatouille", ing:[["Blanc de poulet",150],["Ratatouille maison",250]]},
+  {n:"Pavé de saumon et épinards", ing:[["Saumon",120],["Épinards",200],["Huile d'olive",5]]},
+  {n:"Salade de lentilles au thon", ing:[["Lentilles cuites",180],["Thon en boîte au naturel",80],["Tomate",100],["Vinaigrette légère",15]]},
+  {n:"Escalope de dinde et courgettes", ing:[["Escalope de dinde",130],["Courgette",250],["Huile d'olive",5]]},
+  {n:"Œufs, riz et légumes", ing:[["Œuf",110],["Riz cuit",150],["Brocoli",150]]},
+  {n:"Soupe et tartine au fromage", ing:[["Soupe de légumes maison",350],["Pain complet",50],["Fromage pâte dure (comté, emmental)",25]]},
+  {n:"Pâtes complètes à la sauce tomate", ing:[["Pâtes complètes cuites",200],["Sauce tomate",120],["Parmesan",10]]},
+  {n:"Steak haché et haricots verts", ing:[["Steak haché 5 %",125],["Haricots verts",200],["Huile d'olive",5]]}
+];
 const MSHARE={pdj:.25,dej:.35,din:.3,ext:.1};
 const COACH_DEFAULT = `Semaine 1 — installer les bases
 
@@ -1420,7 +1498,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "3.8";
+const VERSION = "3.9";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1829,6 +1907,7 @@ function renderToday(){
     document.getElementById("water").innerHTML = ""; document.getElementById("closeday").innerHTML = "";
     document.getElementById("hact").innerHTML = ""; document.getElementById("ptsnote").innerHTML = "";
     document.getElementById("reprise").innerHTML = ""; document.getElementById("rythme").innerHTML = "";
+    document.getElementById("ideabtn").innerHTML = "";
     return;
   }
   const t = dayTotals(p,curDay), r = reserveState(p,curDay);
@@ -1862,6 +1941,7 @@ function renderToday(){
   const cs = chalState(p,curDay);
   document.getElementById("chalbox").innerHTML = chalHTML(cs);
   renderRythme(p, b);
+  renderIdeaBtn(p, b);
 
   document.getElementById("daytotal").textContent = `${num(t.kcal)} kcal · ${fmtP(dayPts(p,curDay))} pts`;
   document.getElementById("meals").innerHTML = MEALS.map(([m,lab])=>{
@@ -3175,6 +3255,183 @@ function logRecipe(id,meal){
   const base = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f, sug:(r.nut[3]||0)*f, sat:(r.nut[4]||0)*f, sugf:(r.nut[5]||0)*f};
   pushEntry(meal, {n:r.n, q:"1 portion", kcal:base.kcal, prot:base.prot, fib:base.fib, sug:base.sug, sat:base.sat, sugf:base.sugf, rid:r.id, mult:1, base});
   go("today");
+}
+
+/* Le bouton d'appel, sur l'écran Jour, seulement quand la question se pose :
+   un repas encore vide, et de la marge pour le remplir. */
+function renderIdeaBtn(p, b){
+  const el = document.getElementById("ideabtn"); if(!el) return;
+  el.innerHTML = "";
+  if(!b || curDay !== todayKey()) return;
+  const d = dayOf(p, curDay);
+  const vide = MEALS.find(([m]) => m !== "ext" && !(d.meals[m]||[]).length);
+  if(!vide) return;
+  const bm = mealBudget(p, b, vide[0]);
+  if(bm.kcal < 150) return;
+  el.innerHTML = `<button class="ideabtn press" onclick="openIdea('${vide[0]}')">
+      <div class="ic">🍽️</div>
+      <div class="tx"><b>Que puis-je manger ${vide[0]==="din" ? "ce soir" : vide[0]==="dej" ? "ce midi" : "au petit-déjeuner"} ?</b>
+      <span>Entrée, plat et dessert dans ${num(bm.kcal)} kcal et ${fmtP(bm.pts)} points</span></div>
+      <div class="go">→</div>
+    </button>`;
+}
+
+/* ===================== v3.9 — « Propose-moi un repas » =====================
+   Anaïs : « une option où on me propose une idée de repas avec les points qui me
+   restent pour le reste de la journée, entrée, plat et dessert ». La contrainte
+   est double — les calories restantes ET les points restants — et c'est ce qui
+   rend la proposition honnête : elle ne peut pas tenir en calories au prix
+   d'une journée bourrée de sucre. */
+
+/* Valeur d'une composition, calculée depuis la base. Jamais saisie à la main. */
+function compNut(ing){
+  let kcal=0, prot=0, fib=0, sug=0, sat=0, sugf=0;
+  for(const [nom,g] of ing){
+    const f = FOODS.find(x=>x[0]===nom); if(!f) continue;
+    const q = g/100;
+    kcal += f[2]*q; prot += f[3]*q; fib += f[4]*q;
+    sug += (f[8]||0)*q; sat += (f[9]||0)*q;
+    sugf += f[10] ? 0 : (f[8]||0)*q;
+  }
+  return {kcal, prot, fib, sug, sat, sugf};
+}
+function compPts(c){ return ptsOf(c.kcal, c.prot, c.fib, c.sugf, c.sat); }
+/* Les exclusions du profil s'appliquent aussi aux entrées, plats simples et desserts. */
+function compOK(x, p){
+  const ex = (p.excl||[]).map(stemWords).filter(a=>a.length);
+  if(!ex.length) return true;
+  const words = new Set(stemWords(x.n + " " + x.ing.map(i=>i[0]).join(" ")));
+  return !ex.some(t => t.every(w => words.has(w)));
+}
+
+/* Ce qu'il reste pour CE repas : on ne donne pas tout le reste de la journée au
+   dîner si le déjeuner n'est pas encore noté — on partage au prorata des repères. */
+function mealBudget(p, b, meal){
+  const d = dayOf(p, curDay), t = dayTotals(p, curDay);
+  const kcalLeft = Math.max(0, b.kcal - t.kcal);
+  const ptsLeft  = Math.max(0, budgetPts(b) - dayPts(p, curDay));
+  const vides = MEALS.filter(([m]) => m !== "ext" && !(d.meals[m]||[]).length).map(x => x[0]);
+  const aCouvrir = vides.includes(meal) ? vides : [meal];
+  const somme = aCouvrir.reduce((a,m) => a + MSHARE[m], 0) || MSHARE[meal];
+  const part = MSHARE[meal] / somme;
+  return {kcal: Math.round(kcalLeft*part), pts: +(ptsLeft*part).toFixed(1),
+          kcalLeft, ptsLeft: +ptsLeft.toFixed(1), autres: aCouvrir.filter(m=>m!==meal)};
+}
+
+/* Toutes les combinaisons entrée + plat + dessert qui tiennent, classées. */
+function ideaCandidates(meal){
+  const p = P(), b = p.budget; if(!b) return [];
+  const bm = mealBudget(p, b, meal), f = portionFactor(p);
+  const plats = allRecipes()
+    .filter(r => recipeOK(r,p) && likeOf(r.id) !== -1 && (meal === "din" ? r.cat !== "dej" : r.cat !== "diner"))
+    .map(r => ({n:r.n, rid:r.id, kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f,
+                sug:(r.nut[3]||0)*f, sat:(r.nut[4]||0)*f, sugf:(r.nut[5]!=null?r.nut[5]:r.nut[3]||0)*f}))
+    .concat(PLATS_SIMPLES.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing}, compNut(x.ing))));
+  const entrees  = ENTREES.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing}, compNut(x.ing)));
+  const desserts = DESSERTS.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing}, compNut(x.ing)));
+  if(!plats.length || !entrees.length || !desserts.length) return [];
+
+  const out = [];
+  for(const pl of plats) for(const en of entrees) for(const de of desserts){
+    const kcal = en.kcal + pl.kcal + de.kcal;
+    const pts  = compPts(en) + compPts(pl) + compPts(de);
+    if(kcal > bm.kcal * 1.04) continue;          /* 4 % de tolérance, pas plus */
+    if(pts  > bm.pts + 0.4) continue;
+    const prot = en.prot + pl.prot + de.prot, fib = en.fib + pl.fib + de.fib;
+    /* On vise 90 % de l'enveloppe : proposer 400 kcal quand il en reste 900
+       laisserait faim, et c'est comme ça qu'on craque à 22 h. */
+    const remplissage = kcal / Math.max(1, bm.kcal);
+    const score = -Math.abs(remplissage - 0.92) * 100 + prot/6 + fib/4;
+    out.push({en, pl, de, kcal, pts, prot, fib, score});
+  }
+  out.sort((a,b2) => b2.score - a.score);
+  /* Deux propositions au plus par plat : sinon « une autre idée » renvoie six fois
+     le même cabillaud avec un dessert différent, et ça ne sert à rien. */
+  const vus = {}, varie = [];
+  for(const c of out){
+    vus[c.pl.n] = (vus[c.pl.n]||0) + 1;
+    if(vus[c.pl.n] <= 2) varie.push(c);
+    if(varie.length >= 24) break;
+  }
+  return varie;
+}
+
+let ideaMeal = "din", ideaList = [], ideaIdx = 0;
+function openIdea(meal){
+  const p = P();
+  if(!p.budget) return toast("Complète ton profil d'abord");
+  if(!meal){
+    const d = dayOf(p, curDay);
+    meal = (MEALS.find(([m]) => m !== "ext" && !(d.meals[m]||[]).length) || ["din"])[0];
+  }
+  ideaMeal = meal; ideaList = ideaCandidates(meal); ideaIdx = 0;
+  renderIdea(); openModal("m-idea");
+}
+function nextIdea(){
+  if(!ideaList.length) return;
+  ideaIdx = (ideaIdx + 1) % ideaList.length;
+  renderIdea();
+}
+function renderIdea(){
+  const p = P(), b = p.budget, bm = mealBudget(p, b, ideaMeal);
+  document.getElementById("ideatitle").textContent = mealLabel(ideaMeal) + " sur mesure";
+  const head = document.getElementById("ideahead");
+  head.innerHTML = `<div class="ideabud">
+      <div><span class="v">${num(bm.kcal)}</span><span class="l">kcal pour ce repas</span></div>
+      <div><span class="v">${fmtP(bm.pts)}</span><span class="l">points disponibles</span></div>
+    </div>
+    <div class="tiny muted">${bm.autres.length
+      ? `Il te reste ${num(bm.kcalLeft)} kcal sur la journée : cette part tient compte de ${bm.autres.map(m=>mealLabel(m).toLowerCase()).join(" et ")}, pas encore noté${bm.autres.length>1?"s":""}.`
+      : `C'est tout ce qu'il te reste pour aujourd'hui — les extras compris.`}</div>`;
+
+  const box = document.getElementById("ideabody");
+  if(!ideaList.length){
+    box.innerHTML = `<div class="empty">Rien ne tient dans ${num(bm.kcal)} kcal et ${fmtP(bm.pts)} points, entrée-plat-dessert compris.<br><br>Deux options honnêtes : un plat seul avec un fruit, ou accepter un petit dépassement — la réserve de la semaine est là pour ça.</div>`;
+    document.getElementById("ideago").style.display = "none";
+    return;
+  }
+  document.getElementById("ideago").style.display = "";
+  const c = ideaList[ideaIdx];
+  const cours = (lab, x, recette) => `<div class="cours">
+      <div class="lab">${lab}</div>
+      <div class="nm">${esc(x.n)}${recette ? ` <span class="lnk press" onclick="closeModal('m-idea');openRecipe('${x.rid}')">la recette</span>` : ""}</div>
+      <div class="det">${x.ing ? esc(x.ing.map(([n,g])=>n.toLowerCase()+" "+g+" g").join(" · ")) : "1 portion"}</div>
+      <div class="kc">${num(Math.round(x.kcal))} kcal<em>${fmtP(compPts(x))} pts</em></div>
+    </div>`;
+  box.innerHTML = cours("Entrée", c.en, false) + cours("Plat", c.pl, !!c.pl.rid) + cours("Dessert", c.de, false)
+    + `<div class="ideatot">
+        <b>${num(Math.round(c.kcal))} kcal · ${fmtP(c.pts)} pts</b>
+        <span>${Math.round(c.prot)} g de protéines · ${Math.round(c.fib)} g de fibres — il te resterait ${num(bm.kcal - Math.round(c.kcal))} kcal et ${fmtP(Math.max(0, bm.pts - c.pts))} points</span>
+      </div>
+      <div class="tiny muted" style="margin-top:8px">Proposition ${ideaIdx+1} sur ${ideaList.length}.</div>`;
+}
+/* On enregistre chaque ingrédient comme une ligne normale : modifiable une par une,
+   exactement comme si elle les avait saisies à la main. */
+function logIdea(){
+  const c = ideaList[ideaIdx]; if(!c) return;
+  const p = P(), f = portionFactor(p);
+  const pushComp = x => {
+    for(const [nom,g] of x.ing){
+      const fd = FOODS.find(y=>y[0]===nom); if(!fd) continue;
+      const q = g/100;
+      pushEntry(ideaMeal, {n:fd[0], q:g+" g", g, un:"g",
+        per:{kcal:fd[2], prot:fd[3], fib:fd[4], sug:fd[8], sat:fd[9]},
+        kcal:fd[2]*q, prot:fd[3]*q, fib:fd[4]*q, sug:(fd[8]||0)*q, sat:(fd[9]||0)*q,
+        nat:fd[10], sugf: fd[10] ? 0 : (fd[8]||0)*q});
+    }
+  };
+  pushComp(c.en);
+  if(c.pl.rid){
+    const r = recipeById(c.pl.rid);
+    const base = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f, sug:(r.nut[3]||0)*f,
+                  sat:(r.nut[4]||0)*f, sugf:(r.nut[5]||0)*f};
+    pushEntry(ideaMeal, {n:r.n, q:"1 portion", kcal:base.kcal, prot:base.prot, fib:base.fib,
+                         sug:base.sug, sat:base.sat, sugf:base.sugf, rid:r.id, mult:1, base});
+  } else pushComp(c.pl);
+  pushComp(c.de);
+  closeModal("m-idea");
+  go("today");
+  toast("Repas ajouté — modifiable ligne par ligne");
 }
 
 /* ===================== PROGRAMMER UN PLAT ===================== */
