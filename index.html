@@ -302,6 +302,7 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .ideatot{margin-top:11px;background:var(--mint-soft);border-radius:14px;padding:11px 13px}
 .ideatot b{display:block;font-size:14px;font-weight:900;color:var(--mint-ink)}
 .ideatot span{display:block;font-size:11.5px;font-weight:700;color:var(--mint-ink);opacity:.82;margin-top:3px;line-height:1.5}
+.exclnote{margin-top:12px;background:var(--sun-soft);border-radius:13px;padding:10px 12px;font-size:12px;font-weight:800;color:var(--sun-ink);line-height:1.5}
 .chk{display:flex;align-items:flex-start;gap:9px;font-size:12px;font-weight:700;color:var(--muted);line-height:1.45;padding:2px 0}
 .chk input{width:19px;height:19px;flex:none;margin:0;accent-color:var(--acc)}
 .fl.onl{background:var(--acc-soft);border-color:transparent;color:var(--acc);margin-bottom:10px}
@@ -1498,7 +1499,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "3.9";
+const VERSION = "4.0";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1578,10 +1579,28 @@ let curDay = todayKey();
 function allRecipes(){ return RECIPES.concat(S.myRecipes||[]); }
 function recipeById(id){ if(!id) return null; return allRecipes().find(r=>r.id===id) || null; }
 function emojiOf(r){ return (r && (REMOJI[r.id] || r.e)) || "🍽️"; }
-function likeOf(id){ return (S.likes && S.likes[id]) || 0; }
+/* v4.0 — un cœur porte désormais son auteur. Les anciens cœurs sont des nombres
+   nus : on les lit encore, ils n'ont simplement pas de signataire. */
+function likeRec(id){
+  const v = (S.likes || {})[id];
+  if(v == null) return null;
+  return typeof v === "object" ? v : {v, by:null, at:0};
+}
+function likeOf(id){ const r = likeRec(id); return r ? r.v : 0; }
+function likeBy(id){ const r = likeRec(id); return r && r.by ? r.by : null; }
+/* « Anaïs n'aime pas » vaut mieux qu'un plat qui disparaît sans explication. */
+function likeWho(id){
+  const r = likeRec(id); if(!r || !r.by) return "";
+  const nom = (S.profiles[r.by] || {}).name || "";
+  if(!nom) return "";
+  return r.v === 1 ? nom + " aime" : nom + " n'aime pas";
+}
 function setLike(id,v){
   S.likes = S.likes || {};
-  if(S.likes[id] === v) delete S.likes[id]; else S.likes[id] = v;
+  const cur = likeRec(id);
+  if(cur && cur.v === v && cur.by === S.active) delete S.likes[id];
+  else S.likes[id] = {v, by:S.active, at:Date.now()};
+  S.updated = Date.now();
   save(false);
 }
 /* Pool de génération : on écarte les plats « pas aimés » et on double la chance des « aimés ». */
@@ -2473,14 +2492,18 @@ function pkStep(d){
   el.value = (Math.round(v*2)/2).toString().replace(".",",");
   pickPreview();
 }
+/* v4.0 — le poids d'une part est horodaté pour que la synchro sache qui a mesuré
+   en dernier. Les anciennes valeurs sont des nombres nus : toujours lisibles. */
 function unitWeightMemo(name){
   const m = (S.meta.uw||{})[norm(name)];
-  return m || null;
+  if(m == null) return null;
+  return typeof m === "object" ? (m.w || null) : m;
 }
 function rememberUnitWeight(name, w){
   if(!w || w<=0) return;
   S.meta.uw = S.meta.uw || {};
-  S.meta.uw[norm(name)] = Math.round(w);
+  S.meta.uw[norm(name)] = {w: Math.round(w), at: Date.now(), by: S.active};
+  S.updated = Date.now();
 }
 function showPick(gPrefill, uwPrefill){
   document.getElementById("a-pick").style.display="";
@@ -3148,7 +3171,7 @@ function renderRecipes(){
         <div class="em">${emojiOf(r)}</div>
         <div style="flex:1;min-width:0">
           <div class="b" style="font-size:14px;display:flex;align-items:center;gap:7px">${qDot(e)}<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.n)}</span></div>
-          <div class="tiny muted b">${r.t} min · ${r.cat==="dej"?"déjeuner":r.cat==="both"?"midi ou soir":"dîner"}${mine.has(r.id)?" · à nous":""}${r.tags.includes("reste pour le lendemain")?" · fait un reste":""}${ok?"":" · contient un aliment exclu"}</div>
+          <div class="tiny muted b">${r.t} min · ${r.cat==="dej"?"déjeuner":r.cat==="both"?"midi ou soir":"dîner"}${mine.has(r.id)?" · à nous":""}${r.tags.includes("reste pour le lendemain")?" · fait un reste":""}${ok?"":" · contient un aliment exclu"}${likeWho(r.id)?" · "+esc(likeWho(r.id)):""}</div>
           <div class="nut"><span><b>${Math.round(r.nut[0]*f)}</b> kcal</span><span class="tiny muted b">${Math.round(r.nut[1]*f)} g prot · ${Math.round(r.nut[2]*f)} g fibres</span></div>
         </div>
       </button>
@@ -3158,6 +3181,21 @@ function renderRecipes(){
       </div>
     </div>`;
   }).join("") : `<div class="empty">Aucun plat ne correspond.${q?" Essaie un autre mot.":""}</div>`;
+}
+
+/* v4.0 — les exclusions restent personnelles, mais elles ne doivent plus être
+   invisibles : celui qui cuisine a besoin de savoir ce que l'autre écarte. */
+function exclNote(r){
+  const gene = ["p1","p2"].filter(id => !recipeOK(r, S.profiles[id]));
+  if(!gene.length) return "";
+  const noms = gene.map(id => S.profiles[id].name);
+  const mots = [...new Set(gene.flatMap(id => (S.profiles[id].excl||[])))].filter(w => {
+    const t = stemWords(w); if(!t.length) return false;
+    const words = new Set(stemWords(r.n + " " + r.ing.map(i=>i[0]).join(" ")));
+    return t.every(x => words.has(x));
+  });
+  return `<div class="exclnote">${esc(noms.join(" et "))} ${gene.length>1?"ont":"a"} écarté ${mots.length ? "« "+esc(mots.join(" », « "))+" »" : "un ingrédient de ce plat"}.
+    ${gene.length>1 || gene[0]==="p2" ? "Ce plat ne sort pas dans les menus du soir." : "Il peut rester au déjeuner d'Anaïs."}</div>`;
 }
 
 /* C2 : nos recettes à nous */
@@ -3235,10 +3273,12 @@ function openRecipe(id){
     <div class="tiny muted b" style="margin-top:7px">Total pour deux, puis la part de ${esc(p1.name)} / ${esc(p2.name)} à l'assiette.</div>
     <div class="h2">Préparation</div>
     ${r.steps.map((s,i)=>`<div class="step"><div class="n">${i+1}</div><div class="t">${esc(s)}</div></div>`).join("")}
+    ${exclNote(r)}
     <div class="heart" style="margin-top:14px;gap:9px">
-      <button class="press up ${likeOf(r.id)===1?"on":""}" style="flex:1;width:auto;font-size:13px;font-weight:900" onclick="setLike('${r.id}',1);openRecipe('${r.id}')">♥ On aime</button>
-      <button class="press dn ${likeOf(r.id)===-1?"on":""}" style="flex:1;width:auto;font-size:13px;font-weight:900" onclick="setLike('${r.id}',-1);openRecipe('${r.id}')">✕ Pas pour nous</button>
+      <button class="press up ${likeOf(r.id)===1?"on":""}" style="flex:1;width:auto;font-size:13px;font-weight:900" onclick="setLike('${r.id}',1);openRecipe('${r.id}')">♥ J'aime</button>
+      <button class="press dn ${likeOf(r.id)===-1?"on":""}" style="flex:1;width:auto;font-size:13px;font-weight:900" onclick="setLike('${r.id}',-1);openRecipe('${r.id}')">✕ Pas pour moi</button>
     </div>
+    ${likeWho(r.id) ? `<div class="tiny muted b" style="margin-top:7px;text-align:center">${esc(likeWho(r.id))}${likeBy(r.id)!==S.active ? " — un avis retire ou remonte le plat pour vous deux" : ""}</div>` : ""}
     ${(S.myRecipes||[]).some(x=>x.id===r.id) ? `<button class="btn g sm w press" style="margin-top:9px" onclick="closeModal('m-recipe');openMyRecipe('${r.id}')">Modifier cette recette</button>` : ""}
     <button class="btn w press" style="margin-top:12px" onclick="openPlan('${r.id}')">Programmer ce plat sur les 15 jours</button>
     <div class="grid2" style="margin-top:9px">
@@ -3908,9 +3948,16 @@ function previewPace(){
 function renderExcl(){
   const el = document.getElementById("excltags"); if(!el) return;
   const p = P();
-  el.innerHTML = (p.excl||[]).map((w,i)=>
+  /* v4.0 — celles de l'autre s'affichent aussi, en lecture seule : on cuisine
+     et on fait les courses pour deux, il faut les avoir sous les yeux. */
+  const autreId = S.active === "p1" ? "p2" : "p1", autre = S.profiles[autreId];
+  const sien = (autre && autre.excl || []).filter(Boolean);
+  el.innerHTML = ((p.excl||[]).map((w,i)=>
     `<span class="tagx">${esc(w)}<button class="press" onclick="delExcl(${i})" aria-label="Retirer">×</button></span>`).join("")
-    || `<div class="tiny muted b">Rien d'exclu. Les menus piocheront dans les 40 recettes.</div>`;
+    || `<div class="tiny muted b">Rien d'exclu. Les menus piocheront dans les 40 recettes.</div>`)
+    + (sien.length
+       ? `<div class="tiny muted b" style="margin-top:9px;width:100%">${esc(autre.name)} écarte de son côté : <b>${sien.map(esc).join(", ")}</b>. Ces mots-là filtrent aussi les dîners, qui se mangent à deux.</div>`
+       : "");
 }
 function addExcl(){
   const el = document.getElementById("f-excl-new"); const raw = (el.value||"").trim();
@@ -4060,8 +4107,8 @@ function weekSummary(){
     lines.push(`Dépassements cumulés : ${Math.round(over)} kcal · activité : ${Math.round(act)} kcal`);
     const av = weekAvgOf(p, ws);
     lines.push(`Activité : ${av.amin} min (repère ${ACT_WEEK_GOAL}) · journées bouclées : ${av.closed}/7 · eau : ${av.water} verres sur la semaine`);
-    const liked = Object.keys(S.likes||{}).filter(id=>S.likes[id]===1).map(id=>(recipeById(id)||{}).n).filter(Boolean);
-    const hated = Object.keys(S.likes||{}).filter(id=>S.likes[id]===-1).map(id=>(recipeById(id)||{}).n).filter(Boolean);
+    const liked = Object.keys(S.likes||{}).filter(id=>likeOf(id)===1).map(id=>(recipeById(id)||{}).n).filter(Boolean);
+    const hated = Object.keys(S.likes||{}).filter(id=>likeOf(id)===-1).map(id=>(recipeById(id)||{}).n).filter(Boolean);
     if(id==="p1"){
       if(liked.length) lines.push(`Plats qu'on aime : ${liked.slice(0,12).join(", ")}`);
       if(hated.length) lines.push(`Plats à ne plus proposer : ${hated.slice(0,12).join(", ")}`);
@@ -4106,11 +4153,29 @@ function mergeStates(a,b){
   }
   out.myRecipes = [...mine.values()];
 
-  /* Cœurs et placard : jugements partagés, on prend le plus récent des deux états. */
-  if((b.updated||0) > (a.updated||0)){
-    if(b.likes) out.likes = b.likes;
-    if(b.pantry) out.pantry = b.pantry;
+  /* Le poids d'une part ne traversait pas : chacun devait ressaisir « un Prince = 25 g ».
+     Union clé par clé, la mesure la plus récente gagne. */
+  out.meta = Object.assign({}, a.meta || {}, {});
+  const uwA = (a.meta||{}).uw || {}, uwB = (b.meta||{}).uw || {};
+  const uw = Object.assign({}, uwA);
+  for(const k of Object.keys(uwB)){
+    const at = x => (x && typeof x === "object") ? (x.at||0) : 0;
+    if(!(k in uw) || at(uwB[k]) > at(uw[k])) uw[k] = uwB[k];
   }
+  out.meta.uw = uw;
+  if(((b.meta||{}).fresh) && !out.meta.fresh) out.meta.fresh = b.meta.fresh;
+
+  /* Cœurs et placard : jugements partagés, on prend le plus récent des deux états. */
+  if((b.updated||0) > (a.updated||0) && b.pantry) out.pantry = b.pantry;
+  /* Les cœurs se fusionnent plat par plat : sinon l'avis le plus récent de l'un
+     effaçait tous les avis de l'autre. */
+  const lk = Object.assign({}, a.likes || {});
+  for(const id of Object.keys(b.likes || {})){
+    const ra = lk[id], rb = b.likes[id];
+    const at = x => (x && typeof x === "object") ? (x.at||0) : 0;
+    if(ra == null || at(rb) > at(ra)) lk[id] = rb;
+  }
+  out.likes = lk;
 
   /* Produits scannés : union, les plus récents d'abord, bornée. */
   const seen = new Set(); const prods = [];
