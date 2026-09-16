@@ -269,6 +269,19 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .fl .t span{font-size:11px;font-weight:700;color:var(--muted)}
 .fl .k{font-size:13px;font-weight:900;flex:none}
 .fl.free{border-color:var(--mint-line);background:var(--mint-soft)}
+/* v3.8 — la reprise après un écart, et le rythme du jour */
+.reprise{margin-top:11px;background:var(--sun-soft);border-radius:15px;padding:13px 15px}
+.reprise>b{display:block;font-size:13.5px;font-weight:900;color:var(--sun-ink);line-height:1.35}
+.reprise span b{font-weight:900;color:inherit}
+.reprise span{display:block;font-size:12.5px;font-weight:700;color:var(--sun-ink);opacity:.9;line-height:1.55;margin-top:6px}
+.reprise span.do{opacity:1;font-weight:900}
+.reprise span.st{font-size:11.5px;opacity:.68}
+.rythme{background:var(--surface);border:2.5px solid var(--line);border-radius:18px;padding:12px 14px;margin-bottom:10px}
+.rys{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.ry{flex:1;min-width:88px;background:var(--surface2);border-radius:13px;padding:9px 11px}
+.ry .v{display:block;font-size:17px;font-weight:900;color:var(--ink);line-height:1.1}
+.ry .l{display:block;font-size:10.5px;font-weight:800;color:var(--muted);margin-top:2px;line-height:1.35}
+.rythme .tiny{line-height:1.5;font-weight:700}
 .chk{display:flex;align-items:flex-start;gap:9px;font-size:12px;font-weight:700;color:var(--muted);line-height:1.45;padding:2px 0}
 .chk input{width:19px;height:19px;flex:none;margin:0;accent-color:var(--acc)}
 .fl.onl{background:var(--acc-soft);border-color:transparent;color:var(--acc);margin-bottom:10px}
@@ -519,10 +532,12 @@ details.fold .in{font-size:13px;font-weight:700;color:var(--muted);padding-top:6
   </div>
 
   <div id="hact"></div>
+  <div id="reprise"></div>
   <div id="ptsnote"></div>
   <div class="water" id="water"></div>
   <div id="newbadge"></div>
   <div id="chalbox"></div>
+  <div id="rythme"></div>
 
   <div class="h2">Repas du jour <span class="lnk" id="daytotal"></span></div>
   <div id="meals"></div>
@@ -1405,7 +1420,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "3.7";
+const VERSION = "3.8";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1813,6 +1828,7 @@ function renderToday(){
     document.getElementById("acts").innerHTML = ""; document.getElementById("daytotal").textContent = "";
     document.getElementById("water").innerHTML = ""; document.getElementById("closeday").innerHTML = "";
     document.getElementById("hact").innerHTML = ""; document.getElementById("ptsnote").innerHTML = "";
+    document.getElementById("reprise").innerHTML = ""; document.getElementById("rythme").innerHTML = "";
     return;
   }
   const t = dayTotals(p,curDay), r = reserveState(p,curDay);
@@ -1826,6 +1842,7 @@ function renderToday(){
     ? `<b>${num(left)}</b><span>kcal libres</span><em>${fmtP(dp)} / ${bp} pts</em>`
     : `<b>+${num(-left)}</b><span>au-dessus</span><em>${fmtP(dp)} / ${bp} pts</em>`;
   renderPtsNote(p, b, t, left, dp, bp);
+  renderReprise(p, b);
 
   const bar = (cls,lab,val,max,unit)=>`<div class="hs ${cls}"><div class="l"><span>${lab}</span><span>${num(val)} / ${num(max)} ${unit}</span></div><div class="t"><i style="width:${Math.min(100,val/max*100)}%"></i></div></div>`;
   const acts = dayOf(p,curDay).acts || [];
@@ -1844,6 +1861,7 @@ function renderToday(){
   renderWater();
   const cs = chalState(p,curDay);
   document.getElementById("chalbox").innerHTML = chalHTML(cs);
+  renderRythme(p, b);
 
   document.getElementById("daytotal").textContent = `${num(t.kcal)} kcal · ${fmtP(dayPts(p,curDay))} pts`;
   document.getElementById("meals").innerHTML = MEALS.map(([m,lab])=>{
@@ -1939,6 +1957,88 @@ function repeatActivity(){
 
 /* Retour d'Anaïs : « il me reste des calories mais mes points dépassent, c'est contradictoire ».
    Ça ne l'est pas, et c'est même toute l'utilité des points — mais il fallait le dire. */
+/* ===================== v3.8 — ce qu'on retient du « bon sens » =====================
+   Trois idées prises ailleurs et rendues mesurables ici : la reprise après un écart
+   vaut mieux que la culpabilité, le nombre de prises compte autant que leur taille,
+   et la part d'ultra-transformé dit quelque chose que les calories ne disent pas. */
+
+/* Le lendemain d'un dépassement : nommer, rassurer avec un chiffre, donner UN geste. */
+function renderReprise(p, b){
+  const el = document.getElementById("reprise"); if(!el) return;
+  el.innerHTML = "";
+  if(!b || curDay !== todayKey()) return;
+  const d = dayOf(p, curDay);
+  if(d.closed) return;
+  if(dayTotals(p, curDay).n > 1) return;        /* la journée a démarré : on passe à autre chose */
+  const y = addDays(curDay, -1), ty = dayTotals(p, y);
+  if(ty.n === 0) return;
+  const depasse = ty.kcal - b.kcal;
+  if(depasse < 150) return;                     /* un petit écart ne mérite pas un encart */
+  const r = reserveState(p, curDay), reste = r ? r.left : 0;
+  const st = streak(p);
+  el.innerHTML = `<div class="reprise">
+    <b>Hier, ${num(depasse)} kcal au-dessus. C'est déjà derrière.</b>
+    <span>${reste >= 0
+      ? `La réserve de la semaine absorbe l'écart : il reste <b>${num(reste)} kcal</b> de marge d'ici dimanche. Rien à rattraper — tu reprends ton budget normal de ${num(b.kcal)} kcal.`
+      : `La réserve de la semaine est entamée de <b>${num(-reste)} kcal</b>. Ce n'est pas une raison pour se priver aujourd'hui : tiens ton budget de ${num(b.kcal)} kcal, la semaine se referme d'elle-même.`}</span>
+    <span class="do">Le seul geste qui compte ce matin : noter ton petit-déjeuner.</span>
+    ${st > 1 ? `<span class="st">Ta série continue : <b>${st} jours notés d'affilée</b>. Elle compte les jours notés, pas les jours parfaits — un écart ne la casse pas.</span>` : ""}
+  </div>`;
+}
+
+/* Le nombre de prises et ce qui se mange hors des repas. Sans jugement : le chiffre
+   seul suffit, c'est souvent là qu'est l'écart entre ce qu'on croit manger et ce
+   qu'on mange. Un repas = une prise ; chaque extra compte pour lui-même. */
+function intakeStats(p, k){
+  const d = dayOf(p, k);
+  let prises = 0, hors = 0;
+  for(const [m] of MEALS){
+    const items = d.meals[m] || [];
+    if(m === "ext"){ prises += items.length; hors += items.reduce((a,e)=>a+(e.kcal||0), 0); }
+    else if(items.length) prises += 1;
+  }
+  return {prises, hors: Math.round(hors)};
+}
+/* Part des calories venant de produits ultra-transformés (NOVA 4). Ne vaut que
+   pour les produits scannés : on affiche donc aussi la couverture, sans la cacher. */
+function novaStats(p, k){
+  const d = dayOf(p, k);
+  let connu = 0, ultra = 0, total = 0;
+  for(const m of Object.values(d.meals || {})) for(const e of m){
+    total += e.kcal || 0;
+    if(e.nova != null){ connu += e.kcal || 0; if(e.nova >= 4) ultra += e.kcal || 0; }
+  }
+  return {connu: Math.round(connu), ultra: Math.round(ultra), total: Math.round(total),
+          pct: connu > 0 ? Math.round(ultra / connu * 100) : null,
+          couverture: total > 0 ? Math.round(connu / total * 100) : 0};
+}
+function novaWeek(p, k){
+  let connu = 0, ultra = 0, jours = 0;
+  for(let i = 0; i < 7; i++){
+    const dk = addDays(k, -i);
+    const n = novaStats(p, dk);
+    if(n.connu > 0){ connu += n.connu; ultra += n.ultra; jours++; }
+  }
+  return {pct: connu > 0 ? Math.round(ultra / connu * 100) : null, jours};
+}
+function renderRythme(p, b){
+  const el = document.getElementById("rythme"); if(!el) return;
+  const t = dayTotals(p, curDay);
+  if(!b || t.n === 0){ el.innerHTML = ""; return; }
+  const it = intakeStats(p, curDay), nv = novaStats(p, curDay), nw = novaWeek(p, curDay);
+  const partHors = t.kcal > 0 ? Math.round(it.hors / t.kcal * 100) : 0;
+  let lignes = `<div class="ry"><span class="v">${it.prises}</span><span class="l">prise${it.prises > 1 ? "s" : ""} aujourd'hui</span></div>`;
+  lignes += `<div class="ry"><span class="v">${num(it.hors)}</span><span class="l">kcal hors repas${it.hors > 0 ? ` · ${partHors} %` : ""}</span></div>`;
+  if(nv.pct != null){
+    const tend = nw.pct != null && nw.jours > 2 ? ` · ${nw.pct} % sur la semaine` : "";
+    lignes += `<div class="ry"><span class="v">${nv.pct} %</span><span class="l">ultra-transformé${tend}</span></div>`;
+  }
+  const note = nv.pct != null
+    ? `Part calculée sur les ${nv.couverture} % de ta journée qui viennent de produits scannés — le fait maison n'y entre pas.`
+    : `Scanne un produit emballé et la part d'ultra-transformé s'affichera ici.`;
+  el.innerHTML = `<div class="rythme"><div class="rys">${lignes}</div><div class="tiny muted">${note}</div></div>`;
+}
+
 function renderPtsNote(p, b, t, left, dp, bp){
   const el = document.getElementById("ptsnote"); if(!el) return;
   if(t.n === 0){ el.innerHTML = ""; return; }
