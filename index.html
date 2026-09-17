@@ -1523,7 +1523,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "4.2";
+const VERSION = "4.3";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1946,7 +1946,7 @@ function renderToday(){
   const dpk = document.getElementById("daypick");
   if(dpk){ dpk.value = curDay; dpk.max = todayKey(); }
   if(!b){
-    document.getElementById("rin").innerHTML = "<b>?</b><span>profil à compléter</span>";
+    document.getElementById("rin").innerHTML = "<b>?</b><span>à régler</span>";
     document.getElementById("hstats").innerHTML = `<div class="small b" style="opacity:.9">Renseigne ta taille, ton poids et ton âge dans Profil : le budget se calcule tout seul.</div>`;
     document.getElementById("newbadge").innerHTML = ""; document.getElementById("chalbox").innerHTML = "";
     document.getElementById("meals").innerHTML = `<div class="empty">Profil à compléter avant de loguer.</div>`;
@@ -1956,6 +1956,7 @@ function renderToday(){
     document.getElementById("reprise").innerHTML = ""; document.getElementById("rythme").innerHTML = "";
     document.getElementById("ideabtn").innerHTML = "";
     document.getElementById("hlim").innerHTML = "";
+    fitRing();
     ["h2rythme","h2idea","h2chal"].forEach(h=>{ const e=document.getElementById(h); if(e) e.style.display="none"; });
     return;
   }
