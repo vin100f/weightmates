@@ -125,16 +125,17 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .hero{background:var(--acc);color:#fff;border-radius:26px;padding:16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
 .hero .blob{position:absolute;border-radius:50%;background:rgba(255,255,255,.10);pointer-events:none}
 .rc{position:relative;width:150px;height:150px;flex:none}
-.rc svg{width:120px;height:120px;display:block}
+.rc svg{width:100%;height:100%;display:block}
 .rc circle.p{transition:stroke-dashoffset .8s cubic-bezier(.3,1.1,.4,1)}
 .rin em{display:block;font-style:normal;font-size:11px;font-weight:800;opacity:.88;margin-top:3px;letter-spacing:-.02em;white-space:nowrap}
 .rin{position:absolute;inset:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .rin b{font-size:30px;font-weight:900;letter-spacing:-.045em;line-height:1}
 .rin span{font-size:10px;font-weight:800;opacity:.86;letter-spacing:.01em;text-transform:uppercase;margin-top:4px;white-space:nowrap}
 .rin.over b{color:#FFD9D2}
-.rin.long b{font-size:24px;letter-spacing:-.05em}
 .hstats{flex:1;display:flex;flex-direction:column;gap:11px;min-width:0}
-.hs .l{display:flex;justify-content:space-between;align-items:baseline;gap:8px;white-space:nowrap;font-size:13.5px;font-weight:800;opacity:.92;margin-bottom:5px;gap:8px}
+.hs .l{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13.5px;font-weight:800;opacity:.92;margin-bottom:5px;min-width:0}
+.hs .l span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.hs .l span+span{white-space:nowrap;flex:none}
 .hs .t{height:11px;border-radius:99px;background:rgba(255,255,255,.22);overflow:hidden}
 .hs .t i{display:block;height:100%;border-radius:99px;background:#fff;transition:width .6s cubic-bezier(.3,1.2,.4,1)}
 .hs.m .t i{background:var(--mint)} .hs.f .t i{background:var(--sun)} .hs.r .t i{background:#fff}
@@ -306,6 +307,11 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .exclnote{margin-top:12px;background:var(--sun-soft);border-radius:13px;padding:10px 12px;font-size:13.8px;font-weight:800;color:var(--sun-ink);line-height:1.5}
 /* v4.1 — ce qu'on surveille : saturées et sucres, sous l'anneau, pleine largeur */
 .hlim{display:flex;gap:9px;flex:1 0 100%;margin-top:2px;position:relative;z-index:1}
+@media (max-width:380px){
+  .rc{width:120px;height:120px}
+  .hero{padding:14px;gap:10px}
+  .hlim>div{padding:9px 10px}
+}
 .hlim>div{flex:1;background:rgba(255,255,255,.16);border-radius:15px;padding:10px 12px;min-width:0}
 .hlim .l{display:flex;justify-content:space-between;align-items:baseline;gap:6px;font-size:12.5px;font-weight:800;opacity:.92;margin-bottom:6px;white-space:nowrap}
 .hlim .l b{font-size:14.5px;font-weight:900}
@@ -1517,7 +1523,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "4.1";
+const VERSION = "4.2";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1932,7 +1938,11 @@ function renderToday(){
   const dn = document.getElementById("dayname"), isT = curDay === todayKey();
   dn.innerHTML = isT
     ? `Aujourd'hui<small>${fmtShort(curDay)}</small>`
-    : `${esc(cap(fmtDay(curDay)))}<small>${parseKey(curDay).toLocaleDateString("fr-FR",{year:"numeric"})}</small>`;
+    : (()=>{ const lab = cap(fmtDay(curDay));
+        /* « Hier » ne dit pas quelle date : on la donne. « Mardi 15 septembre »
+           la dit déjà : on donne l'année plutôt que de la répéter. */
+        const sous = /\d/.test(lab) ? parseKey(curDay).toLocaleDateString("fr-FR",{year:"numeric"}) : fmtShort(curDay);
+        return `${esc(lab)}<small>${esc(sous)}</small>`; })();
   const dpk = document.getElementById("daypick");
   if(dpk){ dpk.value = curDay; dpk.max = todayKey(); }
   if(!b){
@@ -1954,11 +1964,7 @@ function renderToday(){
   const C = 314.2;
   document.getElementById("ring").style.strokeDashoffset = C*(1-pct);
   document.getElementById("ring").setAttribute("stroke", left<0 ? "#FFB4A8" : "#FFFFFF");
-  /* Un dépassement à quatre chiffres (« +1 210 ») est plus large que le disque :
-     on réduit le corps plutôt que de laisser le chiffre passer sous l'anneau. */
-  const rtxt = left>=0 ? num(left) : "+"+num(-left);
-  document.getElementById("rin").className = "rin" + (left<0?" over":"")
-    + (rtxt.replace(/[\s\u202f\u00a0]/g,"").length > 4 ? " long" : "");
+  document.getElementById("rin").className = "rin" + (left<0?" over":"");
   const bp = budgetPts(b), dp = dayPts(p,curDay);
   /* v4.1 — les points sortent de l'anneau : à l'intérieur, la ligne passait sous
      l'arc blanc et devenait illisible. Ils ont maintenant leur ligne à eux. */
@@ -2000,6 +2006,7 @@ function renderToday(){
   document.getElementById("chalbox").innerHTML = chalHTML(cs);
   renderRythme(p, b);
   renderIdeaBtn(p, b);
+  fitRing();
   /* Un titre sans contenu dessous fait du bruit : on le cache avec son bloc. */
   [["h2rythme","rythme"],["h2idea","ideabtn"],["h2chal","chalbox"]].forEach(([h,c])=>{
     const th = document.getElementById(h), cb = document.getElementById(c);
@@ -2184,6 +2191,45 @@ function renderRythme(p, b){
   const note = bouts.join(" ");
   el.innerHTML = `<div class="rythme"><div class="rys">${lignes}</div><div class="tiny muted">${note}</div></div>`;
 }
+
+/* v4.2 — le texte de l'anneau est ajusté À L'AFFICHAGE, pas calculé à l'avance.
+   Mes tests tournent sans Nunito (la police est bloquée dans le conteneur), donc
+   toute estimation faite ici était fausse sur le téléphone, où Nunito est plus
+   large. On mesure ce qui est réellement rendu et on réduit jusqu'à ce que ça
+   tienne dans le disque. Vrai quelle que soit la police, la langue, le chiffre. */
+const RING_STROKE = 11.5;
+function fitRing(){
+  const rc = document.querySelector("#v-today .rc"), rin = document.getElementById("rin");
+  if(!rc || !rin) return;
+  /* On prend le SVG comme référence, pas le conteneur : c'est LUI qui dessine le
+     cercle. Un jour où les deux ne coïncidaient pas, le texte était centré 15 px
+     à côté de l'anneau — et le calcul se croyait juste. */
+  const svg = rc.querySelector("svg"); if(!svg) return;
+  const rs = svg.getBoundingClientRect();
+  if(!rs.width) return;
+  const cx = (rs.left + rs.right) / 2, cy = (rs.top + rs.bottom) / 2;
+  const innerR = (50 - RING_STROKE/2) / 120 * rs.width - 4;   /* 4 px de garde */
+  /* Le vrai critère est le COIN le plus éloigné du centre, pas la largeur à
+     mi-hauteur : c'est là que le texte mord sur l'arc. */
+  const coin = r => Math.hypot(
+    Math.max(Math.abs(r.left - cx), Math.abs(r.right - cx)),
+    Math.max(Math.abs(r.top - cy), Math.abs(r.bottom - cy)));
+  const ajuste = (el, max, min) => {
+    if(!el) return;
+    let size = max;
+    el.style.fontSize = size + "px";
+    for(let i = 0; i < 24 && size > min; i++){
+      if(coin(el.getBoundingClientRect()) <= innerR) break;
+      size -= 0.5;
+      el.style.fontSize = size + "px";
+    }
+  };
+  ajuste(rin.querySelector("b"), 32, 15);
+  ajuste(rin.querySelector("span"), 11.5, 7.5);
+}
+window.addEventListener("resize", fitRing);
+/* Nunito arrive après le premier rendu (display=swap) : on réajuste à son arrivée. */
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>fitRing());
 
 function renderPtsNote(p, b, t, left, dp, bp){
   const el = document.getElementById("ptsnote"); if(!el) return;
