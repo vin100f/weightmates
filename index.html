@@ -302,6 +302,9 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .cours .kc{position:absolute;top:11px;right:13px;text-align:right;font-size:14.9px;font-weight:900;color:var(--ink)}
 .cours .kc em{display:block;font-style:normal;font-size:12.1px;font-weight:800;color:var(--muted);margin-top:1px}
 .ideatot{margin-top:11px;background:var(--mint-soft);border-radius:14px;padding:11px 13px}
+.ideatot.over{background:var(--sun-soft)}
+.ideatot.over b,.ideatot.over span{color:var(--sun-ink)}
+.ideawarn{background:var(--sun-soft);color:var(--sun-ink);border-radius:14px;padding:11px 13px;font-size:12.5px;font-weight:800;line-height:1.5;margin-bottom:2px}
 .ideatot b{display:block;font-size:16.1px;font-weight:900;color:var(--mint-ink)}
 .ideatot span{display:block;font-size:13.2px;font-weight:700;color:var(--mint-ink);opacity:.82;margin-top:3px;line-height:1.5}
 .exclnote{margin-top:12px;background:var(--sun-soft);border-radius:13px;padding:10px 12px;font-size:13.8px;font-weight:800;color:var(--sun-ink);line-height:1.5}
@@ -570,6 +573,8 @@ details.fold .in{font-size:14.9px;font-weight:700;color:var(--muted);padding-top
 
   <div id="hact"></div>
   <div id="reprise"></div>
+
+  <div class="h2" id="h2pts">Où tu en es</div>
   <div id="ptsnote"></div>
 
   <div class="h2" id="h2water">Hydratation</div>
@@ -983,7 +988,7 @@ Ajouter le poulet et les épices."></textarea></div>
   <div id="ideahead"></div>
   <div id="ideabody"></div>
   <div class="grid2" style="margin-top:14px">
-    <button class="btn g sm press" onclick="nextIdea()">Une autre idée</button>
+    <button class="btn g sm press" id="ideanext" onclick="nextIdea()">Une autre idée</button>
     <button class="btn sm press" id="ideago" onclick="logIdea()">J'ai mangé ça</button>
   </div>
 </div></div>
@@ -1523,7 +1528,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "4.3";
+const VERSION = "4.5";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1778,6 +1783,8 @@ function dayNutri(p,k){
 function dayPts(p,k){ const d=dayOf(p,k); let s=0; for(const m of Object.values(d.meals||{})) for(const e of m) s+=entryPts(e); return s; }
 function budgetPts(b){ return Math.max(1, Math.round(ptsOf(b.kcal, b.prot, b.fib, b.sug, b.sat))); }
 function fmtP(v){ return (Math.round(v*10)/10).toString().replace(".",","); }
+/* « 1 pts » pique les yeux. */
+function fmtPts(v){ return fmtP(v) + " " + (Math.abs(Math.round(v*10)/10) <= 1 ? "pt" : "pts"); }
 function mealTotal(p,k,m){ return Math.round((dayOf(p,k).meals[m]||[]).reduce((a,e)=>a+e.kcal,0)); }
 function reserveState(p,k){
   const b = p.budget; if(!b) return null;
@@ -1957,7 +1964,7 @@ function renderToday(){
     document.getElementById("ideabtn").innerHTML = "";
     document.getElementById("hlim").innerHTML = "";
     fitRing();
-    ["h2rythme","h2idea","h2chal"].forEach(h=>{ const e=document.getElementById(h); if(e) e.style.display="none"; });
+    ["h2rythme","h2idea","h2chal","h2pts"].forEach(h=>{ const e=document.getElementById(h); if(e) e.style.display="none"; });
     return;
   }
   const t = dayTotals(p,curDay), r = reserveState(p,curDay);
@@ -2009,7 +2016,7 @@ function renderToday(){
   renderIdeaBtn(p, b);
   fitRing();
   /* Un titre sans contenu dessous fait du bruit : on le cache avec son bloc. */
-  [["h2rythme","rythme"],["h2idea","ideabtn"],["h2chal","chalbox"]].forEach(([h,c])=>{
+  [["h2rythme","rythme"],["h2idea","ideabtn"],["h2chal","chalbox"],["h2pts","ptsnote"]].forEach(([h,c])=>{
     const th = document.getElementById(h), cb = document.getElementById(c);
     if(th && cb) th.style.display = cb.innerHTML.trim() ? "" : "none";
   });
@@ -2236,28 +2243,70 @@ function renderPtsNote(p, b, t, left, dp, bp){
   const el = document.getElementById("ptsnote"); if(!el) return;
   if(t.n === 0){ el.innerHTML = ""; return; }
   const dd = dayNutri(p, curDay);
+  const r = reserveState(p, curDay);
+  /* Ce qui tire les points vers le haut, dit en clair. Partagé par les deux cas
+     de dépassement — c'est la même explication. */
+  const causes = () => {
+    const c = [];
+    if(dd.sug > b.sug) c.push(`trop de sucres (${Math.round(dd.sug)} g pour un repère de ${b.sug})`);
+    if(dd.sat > b.sat) c.push(`trop de graisses saturées (${Math.round(dd.sat)} g pour ${b.sat})`);
+    if(t.prot < b.prot*0.75) c.push(`pas assez de protéines (${t.prot} g sur ${b.prot})`);
+    if(t.fib < b.fib*0.75) c.push(`pas assez de fibres (${t.fib} g sur ${b.fib})`);
+    return c;
+  };
+  /* Ce qu'il reste à aller chercher quand la journée est encore ouverte. */
+  const manques = () => {
+    const m = [];
+    if(t.prot < b.prot) m.push(`${b.prot - t.prot} g de protéines`);
+    if(t.fib < b.fib) m.push(`${b.fib - t.fib} g de fibres`);
+    return m;
+  };
+
+  /* 1. Il reste des calories mais les points dépassent : le cas qui surprend. */
   if(dp > bp && left >= 0){
-    const causes = [];
-    if(dd.sug > b.sug) causes.push(`trop de sucres (${Math.round(dd.sug)} g pour un repère de ${b.sug})`);
-    if(dd.sat > b.sat) causes.push(`trop de graisses saturées (${Math.round(dd.sat)} g pour ${b.sat})`);
-    if(t.prot < b.prot*0.75) causes.push(`pas assez de protéines (${t.prot} g sur ${b.prot})`);
-    if(t.fib < b.fib*0.75) causes.push(`pas assez de fibres (${t.fib} g sur ${b.fib})`);
+    const c = causes();
     el.innerHTML = `<div class="ptsnote">
       <b>Il te reste ${num(left)} kcal, et pourtant tes points dépassent.</b>
-      <span>Ce n'est pas une erreur : les points comptent les calories <em>et</em> la qualité. ${causes.length?`Aujourd'hui : ${causes.join(", ")}.`:`Le repère de ${bp} points suppose une journée équilibrée.`}</span>
+      <span>Ce n'est pas une erreur : les points comptent les calories <em>et</em> la qualité. ${c.length?`Aujourd'hui : ${c.join(", ")}.`:`Le repère de ${bp} points suppose une journée équilibrée.`}</span>
       <span><b>Ce que ça veut dire :</b> tu peux encore manger, mais choisis du protéiné ou du fibreux — un yaourt nature, des œufs, un fruit, des légumes — plutôt que du sucré ou du gras.</span>
     </div>`;
     return;
   }
+
+  /* 2. Dépassement calorique mais points tenus : c'est bon signe, on le dit. */
   if(dp <= bp && left < 0){
     el.innerHTML = `<div class="ptsnote ok">
       <b>Tu dépasses en calories, mais pas en points.</b>
-      <span>C'est le bon signe : ce que tu as mangé était de bonne qualité — ${Math.round(dd.sug)} g de sucres et ${Math.round(dd.sat)} g de saturées, contre ${b.sug} et ${b.sat} en repère. Le dépassement se prend sur la réserve de la semaine.</span>
+      <span>C'est le bon signe : ce que tu as mangé était de bonne qualité — ${Math.round(dd.sug)} g de sucres et ${Math.round(dd.sat)} g de saturées, contre ${b.sug} et ${b.sat} en repère. Le dépassement se prend sur la réserve de la semaine${r ? `, où il reste ${num(r.left)} kcal` : ""}.</span>
     </div>`;
     return;
   }
-  el.innerHTML = "";
+
+  /* 3. v4.4 — les deux dépassent. C'était le seul cas SANS commentaire, alors que
+     c'est celui qui en demande le plus. Le silence laissait deviner. */
+  if(dp > bp && left < 0){
+    const c = causes();
+    el.innerHTML = `<div class="ptsnote">
+      <b>Tu dépasses sur les deux : ${num(-left)} kcal et ${fmtP(dp - bp)} points au-dessus.</b>
+      <span>${c.length ? `Ce qui pèse : ${c.join(", ")}.` : `Les calories et la qualité tirent dans le même sens aujourd'hui.`}</span>
+      <span><b>Ce que ça veut dire :</b> ${r && r.left >= 0
+        ? `la réserve de la semaine encaisse — il y reste ${num(r.left)} kcal. Pas de journée de rattrapage demain : reprends ton budget normal.`
+        : `la réserve de la semaine est entamée${r ? ` de ${num(-r.left)} kcal` : ""}. Ce n'est pas une raison pour se priver demain — tiens ton budget et la semaine se referme d'elle-même.`}</span>
+    </div>`;
+    return;
+  }
+
+  /* 4. v4.4 — tout est tenu. Ce cas n'affichait rien non plus : la synthèse
+     disparaissait précisément les jours où ça se passe bien. */
+  const m = manques();
+  el.innerHTML = `<div class="ptsnote ok">
+    <b>Tu es dans le vert : ${num(left)} kcal et ${fmtP(bp - dp)} points de marge.</b>
+    <span>${m.length
+      ? `Il te manque encore ${m.join(" et ")} pour atteindre tes objectifs — c'est là qu'il vaut mieux mettre ce qu'il reste.`
+      : `Protéines et fibres sont au rendez-vous, sucres et saturées sous leur repère. Journée propre.`}</span>
+  </div>`;
 }
+
 
 function chalHTML(cs){
   if(!cs.c) return "";
@@ -3453,6 +3502,11 @@ function mealBudget(p, b, meal){
 }
 
 /* Toutes les combinaisons entrée + plat + dessert qui tiennent, classées. */
+/* v4.5 — quand rien ne tient, on ne rend plus la main vide.
+   Anaïs, avec 389 kcal et 0,9 point restants : l'appli nommait deux options
+   (« un plat seul avec un fruit », « accepter un petit dépassement ») et n'en
+   proposait AUCUNE, avec pour seul bouton « Une autre idée » qui ne pouvait rien
+   faire. On descend maintenant les marches une par une, et on dit laquelle. */
 function ideaCandidates(meal){
   const p = P(), b = p.budget; if(!b) return [];
   const bm = mealBudget(p, b, meal), f = portionFactor(p);
@@ -3463,31 +3517,58 @@ function ideaCandidates(meal){
     .concat(PLATS_SIMPLES.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing}, compNut(x.ing))));
   const entrees  = ENTREES.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing}, compNut(x.ing)));
   const desserts = DESSERTS.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing}, compNut(x.ing)));
-  if(!plats.length || !entrees.length || !desserts.length) return [];
+  if(!plats.length) return [];
+  const rien = {n:null, kcal:0, prot:0, fib:0, sug:0, sat:0, sugf:0, ing:[]};
 
-  const out = [];
-  for(const pl of plats) for(const en of entrees) for(const de of desserts){
-    const kcal = en.kcal + pl.kcal + de.kcal;
-    const pts  = compPts(en) + compPts(pl) + compPts(de);
-    if(kcal > bm.kcal * 1.04) continue;          /* 4 % de tolérance, pas plus */
-    if(pts  > bm.pts + 0.4) continue;
-    const prot = en.prot + pl.prot + de.prot, fib = en.fib + pl.fib + de.fib;
-    /* On vise 90 % de l'enveloppe : proposer 400 kcal quand il en reste 900
-       laisserait faim, et c'est comme ça qu'on craque à 22 h. */
-    const remplissage = kcal / Math.max(1, bm.kcal);
-    const score = -Math.abs(remplissage - 0.92) * 100 + prot/6 + fib/4;
-    out.push({en, pl, de, kcal, pts, prot, fib, score});
+  /* Une passe = une composition autorisée et un niveau de tolérance. */
+  const passe = (avecEntree, avecDessert, tolKcal, tolPts, forme) => {
+    const eList = avecEntree ? entrees : [rien];
+    const dList = avecDessert ? desserts : [rien];
+    const out = [];
+    for(const pl of plats) for(const en of eList) for(const de of dList){
+      const kcal = en.kcal + pl.kcal + de.kcal;
+      const pts  = compPts(en) + compPts(pl) + compPts(de);
+      /* tolKcal null = aucun plafond. Sans ça, une enveloppe à 0 kcal multipliée
+         par n'importe quoi reste 0, et le dernier recours ne proposait rien —
+         précisément le jour où l'on en a le plus besoin. */
+      if(tolKcal !== null && kcal > bm.kcal * tolKcal) continue;
+      if(tolPts  !== null && pts  > bm.pts + tolPts) continue;
+      const prot = en.prot + pl.prot + de.prot, fib = en.fib + pl.fib + de.fib;
+      const remplissage = kcal / Math.max(1, bm.kcal);
+      /* On vise 92 % de l'enveloppe : proposer 400 kcal quand il en reste 900
+         laisserait faim, et c'est comme ça qu'on craque à 22 h. */
+      const score = -Math.abs(remplissage - 0.92) * 100 + prot/6 + fib/4
+                    - Math.max(0, pts - bm.pts) * 8;     /* le dépassement en points coûte cher */
+      out.push({en:en.n?en:null, pl, de:de.n?de:null, kcal, pts, prot, fib, score, forme,
+                depKcal: Math.max(0, Math.round(kcal - bm.kcal)),
+                depPts: Math.max(0, +(pts - bm.pts).toFixed(1))});
+    }
+    out.sort((a,b2) => b2.score - a.score);
+    const vus = {}, varie = [];
+    for(const c of out){
+      vus[c.pl.n] = (vus[c.pl.n]||0) + 1;
+      if(vus[c.pl.n] <= 2) varie.push(c);
+      if(varie.length >= 24) break;
+    }
+    return varie;
+  };
+
+  /* Les marches, dans l'ordre. On s'arrête à la première qui donne quelque chose. */
+  let r;
+  r = passe(true,  true,  1.04, 0.4, "complet");      if(r.length) return r;
+  r = passe(false, true,  1.04, 0.4, "sansEntree");   if(r.length) return r;
+  r = passe(false, false, 1.04, 0.4, "platSeul");     if(r.length) return r;
+  /* Toujours rien : les points sont le mur, pas les calories. On les laisse
+     déborder un peu — il faut bien dîner — mais on l'annonce. */
+  r = passe(true,  true,  1.04, null, "pointsDepasses");  if(r.length) return r;
+  r = passe(false, false, 1.04, null, "platSeulPointsDepasses"); if(r.length) return r;
+  /* Dernier recours : le plus léger qui existe, dépassements assumés et chiffrés. */
+  r = passe(false, false, null, null, "lePlusLeger");
+  if(r.length){
+    r.sort((a,b2) => a.kcal - b2.kcal);
+    return r.slice(0, 8).map(c => Object.assign({}, c, {forme:"lePlusLeger"}));
   }
-  out.sort((a,b2) => b2.score - a.score);
-  /* Deux propositions au plus par plat : sinon « une autre idée » renvoie six fois
-     le même cabillaud avec un dessert différent, et ça ne sert à rien. */
-  const vus = {}, varie = [];
-  for(const c of out){
-    vus[c.pl.n] = (vus[c.pl.n]||0) + 1;
-    if(vus[c.pl.n] <= 2) varie.push(c);
-    if(varie.length >= 24) break;
-  }
-  return varie;
+  return [];
 }
 
 let ideaMeal = "din", ideaList = [], ideaIdx = 0;
@@ -3520,24 +3601,43 @@ function renderIdea(){
 
   const box = document.getElementById("ideabody");
   if(!ideaList.length){
-    box.innerHTML = `<div class="empty">Rien ne tient dans ${num(bm.kcal)} kcal et ${fmtP(bm.pts)} points, entrée-plat-dessert compris.<br><br>Deux options honnêtes : un plat seul avec un fruit, ou accepter un petit dépassement — la réserve de la semaine est là pour ça.</div>`;
+    box.innerHTML = `<div class="empty">Même le plus léger de mes plats ne rentre pas ici.<br><br>Prends un yaourt nature et un fruit : environ 130 kcal, presque rien en points. C'est ce qui se rapproche le plus d'un dîner sans creuser la réserve.</div>`;
     document.getElementById("ideago").style.display = "none";
+    document.getElementById("ideanext").style.display = "none";
     return;
   }
   document.getElementById("ideago").style.display = "";
+  document.getElementById("ideanext").style.display = ideaList.length > 1 ? "" : "none";
   const c = ideaList[ideaIdx];
-  const cours = (lab, x, recette) => `<div class="cours">
+
+  /* v4.5 — dire à quelle marche on est descendu, et pourquoi. */
+  const mots = {
+    complet: "",
+    sansEntree: `Pas de place pour une entrée dans ${num(bm.kcal)} kcal : plat et dessert seulement.`,
+    platSeul: `Ni entrée ni dessert ne rentrent : un plat seul, c'est ce qui tient.`,
+    pointsDepasses: `Les calories passent, les points non. Cette proposition dépasse de ${fmtPts(c.depPts)} — c'est le prix d'un vrai dîner ce soir.`,
+    platSeulPointsDepasses: `Un plat seul, et ${fmtPts(c.depPts)} au-dessus : en dessous, il n'y a plus de dîner.`,
+    lePlusLeger: `Rien ne rentre vraiment. Voici le plus léger que j'aie${c.depKcal?`, à ${num(c.depKcal)} kcal`:""}${c.depPts?` et ${fmtPts(c.depPts)}`:""} au-dessus. La réserve de la semaine est là pour ça.`
+  };
+  const avert = mots[c.forme] ? `<div class="ideawarn">${mots[c.forme]}</div>` : "";
+
+  const cours = (lab, x, recette) => !x ? "" : `<div class="cours">
       <div class="lab">${lab}</div>
       <div class="nm">${esc(x.n)}${recette ? ` <span class="lnk press" onclick="closeModal('m-idea');openRecipe('${x.rid}')">la recette</span>` : ""}</div>
-      <div class="det">${x.ing ? esc(x.ing.map(([n,g])=>n.toLowerCase()+" "+g+" g").join(" · ")) : "1 portion"}</div>
-      <div class="kc">${num(Math.round(x.kcal))} kcal<em>${fmtP(compPts(x))} pts</em></div>
+      <div class="det">${x.ing && x.ing.length ? esc(x.ing.map(([n,g])=>n.toLowerCase()+" "+g+" g").join(" · ")) : "1 portion"}</div>
+      <div class="kc">${num(Math.round(x.kcal))} kcal<em>${fmtPts(compPts(x))}</em></div>
     </div>`;
-  box.innerHTML = cours("Entrée", c.en, false) + cours("Plat", c.pl, !!c.pl.rid) + cours("Dessert", c.de, false)
-    + `<div class="ideatot">
-        <b>${num(Math.round(c.kcal))} kcal · ${fmtP(c.pts)} pts</b>
-        <span>${Math.round(c.prot)} g de protéines · ${Math.round(c.fib)} g de fibres — il te resterait ${num(bm.kcal - Math.round(c.kcal))} kcal et ${fmtP(Math.max(0, bm.pts - c.pts))} points</span>
-      </div>
-      <div class="tiny muted" style="margin-top:8px">Proposition ${ideaIdx+1} sur ${ideaList.length}.</div>`;
+  const reste = bm.kcal - Math.round(c.kcal), restePts = bm.pts - c.pts;
+  box.innerHTML = avert
+    + cours("Entrée", c.en, false) + cours("Plat", c.pl, !!c.pl.rid) + cours("Dessert", c.de, false)
+    + `<div class="ideatot ${c.depKcal||c.depPts?"over":""}">
+        <b>${num(Math.round(c.kcal))} kcal · ${fmtPts(c.pts)}</b>
+        <span>${Math.round(c.prot)} g de protéines · ${Math.round(c.fib)} g de fibres — ${
+          (reste >= 0 && restePts >= 0)
+            ? `il te resterait ${num(reste)} kcal et ${fmtPts(restePts)}`
+            : `au-dessus de ton enveloppe de ${reste<0?num(-reste)+" kcal":""}${reste<0&&restePts<0?" et ":""}${restePts<0?fmtPts(-restePts):""}`}</span>
+      </div>`
+    + `<div class="tiny muted" style="margin-top:8px">Proposition ${ideaIdx+1} sur ${ideaList.length}.</div>`;
 }
 /* On enregistre chaque ingrédient comme une ligne normale : modifiable une par une,
    exactement comme si elle les avait saisies à la main. */
@@ -3554,7 +3654,7 @@ function logIdea(){
         nat:fd[10], sugf: fd[10] ? 0 : (fd[8]||0)*q});
     }
   };
-  pushComp(c.en);
+  if(c.en) pushComp(c.en);
   if(c.pl.rid){
     const r = recipeById(c.pl.rid);
     const base = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f, sug:(r.nut[3]||0)*f,
@@ -3562,7 +3662,7 @@ function logIdea(){
     pushEntry(ideaMeal, {n:r.n, q:"1 portion", kcal:base.kcal, prot:base.prot, fib:base.fib,
                          sug:base.sug, sat:base.sat, sugf:base.sugf, rid:r.id, mult:1, base});
   } else pushComp(c.pl);
-  pushComp(c.de);
+  if(c.de) pushComp(c.de);
   closeModal("m-idea");
   go("today");
   toast("Repas ajouté — modifiable ligne par ligne");
