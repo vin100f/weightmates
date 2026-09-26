@@ -1528,7 +1528,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "4.5";
+const VERSION = "4.6";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -3893,6 +3893,14 @@ function isDone(x){ return x.free ? !!(S.shop.extra[x.idx]||{}).done : !!S.shop.
 function shopLeftCount(){ try{ return shopList().filter(x=>!isDone(x)).length; }catch(e){ return 0; } }
 function renderShop(){
   const host = document.getElementById("shop"); if(!host) return;
+  /* Un seul écouteur, posé une fois : il survit aux re-rendus de la liste. */
+  if(!host.dataset.bound){
+    host.addEventListener("click", e => {
+      const li = e.target.closest("li[data-ref]"); if(!li) return;
+      toggleShop(li.dataset.kind, li.dataset.kind === "x" ? +li.dataset.ref : li.dataset.ref);
+    });
+    host.dataset.bound = "1";
+  }
   const mw = S.menus && S.menus.week;
   if(S.shop.week !== mw){ S.shop.week = mw; S.shop.checked = {}; }   /* les extras survivent */
   const seg = document.querySelectorAll("#shopseg button");
@@ -3909,10 +3917,14 @@ function renderShop(){
     host.innerHTML = `<div class="empty">Rien à acheter pour ${scopeLabel()}.<br>Programme des plats dans Cuisine, ou ajoute un article ci-dessus.</div>`;
     return;
   }
+  /* v4.6 — l'attribut valait `onclick='toggleShop('k',"Pain complet")'` : le premier
+     guillemet simple de `'k'` refermait l'attribut, qui se réduisait à `toggleShop(`.
+     AUCUN article n'était cliquable, quel que soit son nom. On passe par des
+     attributs de données et un écouteur délégué : plus aucun texte d'article ne
+     peut casser le code. */
   const row = x => {
     const d = isDone(x);
-    const arg = x.free ? `'x',${x.idx}` : `'k',${JSON.stringify(x.k)}`;
-    return `<li class="${d?"done":""}" onclick='toggleShop(${arg})'>
+    return `<li class="${d?"done":""}" data-kind="${x.free?"x":"k"}" data-ref="${esc(x.free ? x.idx : x.k)}">
       <span class="box">${d?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"></path></svg>':""}</span>
       <span class="nm">${esc(x.n)}${x.free?' <span class="tiny muted">ajouté</span>':""}</span><span class="q">${esc(x.q)}</span></li>`;
   };
@@ -3924,7 +3936,7 @@ function renderShop(){
   }
   const dones = L.filter(isDone);
   if(dones.length){
-    html += `<details class="done-fold"><summary>${dones.length} article${dones.length>1?"s":""} pris — voir</summary><div class="card shop"><ul>${dones.map(row).join("")}</ul></div></details>`;
+    html += `<details class="done-fold"><summary>${dones.length} article${dones.length>1?"s":""} déjà pris — toucher pour remettre dans la liste</summary><div class="card shop"><ul>${dones.map(row).join("")}</ul></div></details>`;
   }
   host.innerHTML = html;
 }
