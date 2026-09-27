@@ -434,6 +434,21 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 
 /* étiquettes (exclusions, placard) */
 .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+/* v4.7 — le frigo et le taux de couverture des recettes */
+.frbox{background:var(--surface);border-radius:var(--r);padding:14px;box-shadow:var(--shadow);margin-bottom:12px}
+.frbox .chips{margin:0}
+.frcard{flex-wrap:wrap;gap:0}
+.frmain{display:flex;gap:12px;align-items:center;background:none;border:0;padding:0;font-family:inherit;text-align:left;width:100%;min-width:0}
+.cov{display:flex;align-items:center;gap:9px;width:100%;margin-top:10px;padding-top:10px;border-top:2px solid var(--line)}
+.covbar{flex:none;width:44px;height:7px;border-radius:99px;background:var(--line2);overflow:hidden}
+.covbar i{display:block;height:100%;border-radius:99px;background:var(--sun)}
+.cov.full .covbar i{background:var(--mint)}
+.covtx{flex:1;min-width:0;font-size:12.6px;font-weight:800;color:var(--muted);line-height:1.45}
+.covtx b{color:var(--ink)}
+.cov.full .covtx b{color:var(--mint-ink)}
+.covadd{flex:none;padding:7px 11px;border-radius:12px;background:var(--acc-soft);color:var(--acc);font-size:12.6px;font-weight:900}
+.frline{background:var(--violet-soft);color:var(--acc);border-radius:14px;padding:11px 13px;font-size:12.5px;font-weight:800;line-height:1.5;margin-bottom:2px}
+.frline.ok{background:var(--mint-soft);color:var(--mint-ink)}
 .tagx{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:10px;background:var(--surface2);font-size:14.4px;font-weight:800;color:var(--ink)}
 .tagx button{width:16px;height:16px;border-radius:50%;background:var(--line2);color:var(--ink);font-size:12.6px;line-height:1;display:flex;align-items:center;justify-content:center;flex:none}
 
@@ -674,9 +689,9 @@ details.fold .in{font-size:14.9px;font-weight:700;color:var(--muted);padding-top
   </div>
 
   <div id="k-recipes">
-    <div class="field" style="margin-top:12px"><input id="rq" type="search" placeholder="Chercher un plat ou un ingrédient…" oninput="searchRecipes()"></div>
+    <div class="field" style="margin-top:12px" id="rqbox"><input id="rq" type="search" placeholder="Chercher un plat ou un ingrédient…" oninput="searchRecipes()"></div>
     <div class="chips" id="rfilters"></div>
-    <div class="h2" style="margin-top:6px"><span id="rcount">—</span> <span class="lnk press" onclick="openMyRecipe()">+ ajouter la nôtre</span></div>
+    <div class="h2" style="margin-top:6px"><span id="rcount">—</span> <span class="lnk press" id="raddmine" onclick="openMyRecipe()">+ ajouter la nôtre</span></div>
     <div id="rlist"></div>
   </div>
 
@@ -1528,7 +1543,7 @@ const REMOJI_V3 = {"r16":"🫑","r17":"🐠","r18":"🥔","r19":"🥖","r20":"�
 /* Les 25 recettes de la v3 rejoignent les 15 d'origine. */
 if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assign(REMOJI, REMOJI_V3); }
 
-const VERSION = "4.6";
+const VERSION = "4.7";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -1564,6 +1579,7 @@ function migrate(s){
   s.shop.updated = s.shop.updated || 0;
   s.pantry = s.pantry || PANTRY_DEFAULT.slice();
   s.myRecipes = s.myRecipes || [];          /* recettes maison, même forme que RECIPES */
+  s.fridge = s.fridge || [];                /* ce qu'on a sous la main : {n, in, at} */
   s.likes = s.likes || {};                  /* id de recette -> 1 (aimé) ou -1 (pas aimé) */
   s.products = s.products || [];            /* produits scannés, les plus récents d'abord */
   s.duelLog = s.duelLog || [];              /* {week, p1, p2} une entrée par semaine close */
@@ -3286,10 +3302,183 @@ function kTab(t){
 }
 /* C6 : la recherche par nom et par ingrédient */
 function searchRecipes(){ rquery = document.getElementById("rq").value.trim(); renderRecipes(); }
+
+/* ===================== v4.7 — « J'ai ça dans le frigo » =====================
+   Vincent : « si je donne des ingrédients de mon frigo, est-ce que l'appli me
+   propose des recettes adaptées ? » Elle ne le faisait pas. La recherche des
+   recettes exigeait TOUS les mots à la fois : taper « poulet courgette riz
+   tomate » ne trouvait rien, puisque aucune recette ne contient exactement ces
+   quatre-là. Ici, c'est l'inverse : on classe les plats par ce qu'on a déjà, et
+   on nomme ce qui manque. Le vrai bénéfice n'est pas la recette — c'est de ne
+   plus jeter les trois courgettes qui tournent. */
+
+const FRIDGE_KEEP = 21*864e5;   /* on oublie une trace de retrait au bout de trois semaines */
+const FRIDGE_MIN  = 3;          /* en dessous, le frigo ne pèse pas sur les propositions */
+
+/* Un mot seul ne doit pas attraper un composé qui est un tout autre aliment :
+   « pomme » n'est pas « pomme de terre ». */
+const FRIDGE_NOT = {pomme:["terre"], chou:["fleur","bruxelle"], lait:["coco"], sucre:["vanille"]};
+
+/* Des mots qui qualifient sans désigner. Ils ne peuvent pas porter une
+   correspondance à eux seuls : sans cette liste, « Riz complet (sec) » couvrait
+   « Boulgour (sec) » — par le mot « sec ». Une correspondance doit toujours
+   reposer sur un mot qui nomme un aliment. */
+const FRIDGE_QUAL = new Set(["sec","seche","seches","frai","frais","fraiche","cuit","cuite","cru","crue",
+  "surgele","surgelee","conserve","concasse","concassee","rape","rapee","fume","fumee","nature","naturel",
+  "complet","complete","entier","entiere","demi","ecreme","ecremee","allege","allegee","light","maison",
+  "blanc","blanche","vert","verte","rouge","jaune","noir","noire","rose","brun","brune","gros","grosse",
+  "petit","petite","grand","grande","moyen","moyenne","tranche","morceau","boite","sachet","pot"]);
+function carriers(txt){ return stemWords(txt).filter(w => w.length > 2 && !FRIDGE_QUAL.has(w)); }
+
+function fridgeList(){ return (S.fridge||[]).filter(x=>x.in).sort((a,b)=>(b.at||0)-(a.at||0)); }
+/* On garde une trace des retraits : sans elle, la fusion entre les deux téléphones
+   ferait revenir un article que l'autre vient de consommer. */
+function fridgeSet(nom, dedans){
+  const k = norm(nom||"").trim(); if(!k) return;
+  S.fridge = S.fridge || [];
+  const e = S.fridge.find(x => norm(x.n||"").trim() === k);
+  if(e){ e.in = dedans; e.at = Date.now(); if(dedans) e.n = nom; }
+  else S.fridge.push({n:nom, in:dedans, at:Date.now()});
+  const now = Date.now();
+  S.fridge = S.fridge.filter(x => x.in || now - (x.at||0) < FRIDGE_KEEP);
+}
+/* Les mots utiles d'un article, racinés : « courgettes » et « courgette » sont un
+   seul et même légume. */
+function fridgeStems(){ return fridgeList().map(x => carriers(x.n)).filter(a => a.length); }
+
+/* Un ingrédient de recette est couvert dès qu'un article du frigo partage avec lui
+   un mot significatif. */
+function ingCovered(ing, stems){
+  const ws = carriers(ing);
+  if(!ws.length) return false;
+  return stems.some(st => st.some(w =>
+    ws.includes(w) && !(FRIDGE_NOT[w]||[]).some(bad => ws.includes(bad))));
+}
+/* Ce qu'on a, ce qui manque. Le placard (sel, huile, ail, épices…) ne manque jamais :
+   c'est la même liste qui l'exclut déjà des courses. */
+function coverOf(ings, stems){
+  const ont = [], manque = [];
+  for(const nom of (ings||[])){
+    if(inPantry(nom)) continue;
+    (ingCovered(nom, stems) ? ont : manque).push(nom);
+  }
+  const total = ont.length + manque.length;
+  return {ont, manque, total, taux: total ? ont.length/total : 0};
+}
+function coverRecipe(r, stems){ return coverOf(r.ing.map(i=>i[0]), stems); }
+
+/* ---------- la saisie ---------- */
+function addFridge(nom){
+  const el = document.getElementById("frnew");
+  const v = (nom != null ? nom : (el ? el.value : "")).trim();
+  if(!v) return;
+  fridgeSet(v, true);
+  if(el){ el.value = ""; }
+  save(false); renderRecipes();
+}
+function delFridge(n){ fridgeSet(n, false); save(false); renderRecipes(); }
+function clearFridge(){
+  for(const x of fridgeList()) fridgeSet(x.n, false);
+  save(false); renderRecipes(); toast("Frigo vidé");
+}
+/* Suggestions puisées dans la base : on écrit « courg », on tape sur « Courgette ».
+   Ça évite les fautes de frappe, qui feraient rater la correspondance. */
+function fridgeSug(){
+  const el = document.getElementById("frsug"); if(!el) return;
+  const v = (document.getElementById("frnew").value||"").trim();
+  const ws = qWords(v);
+  if(v.length < 2 || !ws.length){ el.innerHTML = ""; return; }
+  const deja = new Set(fridgeList().map(x => norm(x.n).trim()));
+  const hits = findFoods(ws).filter(f => !deja.has(norm(f[0]).trim())).slice(0, 6);
+  el.innerHTML = hits.map(f =>
+    `<button class="chip press" onclick="addFridge(${JSON.stringify(f[0]).replace(/"/g,"&quot;")})">${esc(f[0])}</button>`).join("");
+}
+
+/* ---------- ce qu'on peut cuisiner ---------- */
+function fridgeRanked(p){
+  const stems = fridgeStems();
+  const mine = new Set((S.myRecipes||[]).map(r=>r.id));
+  return allRecipes()
+    .filter(r => likeOf(r.id) !== -1)
+    .map(r => ({r, c: coverRecipe(r, stems), mine: mine.has(r.id), ok: recipeOK(r,p)}))
+    .sort((a,b) =>
+      b.c.taux - a.c.taux ||
+      a.c.manque.length - b.c.manque.length ||
+      a.r.t - b.r.t);
+}
+/* Ce qui manque part dans les courses en un geste : c'est là que la fonction paie. */
+function missingToShop(rid){
+  const r = recipeById(rid); if(!r) return;
+  const c = coverRecipe(r, fridgeStems());
+  if(!c.manque.length) return toast("Tu as déjà tout");
+  S.shop.extra = S.shop.extra || [];
+  const deja = new Set(S.shop.extra.map(x => norm(x.n).trim()));
+  let n = 0;
+  for(const nom of c.manque){
+    if(deja.has(norm(nom).trim())) continue;
+    S.shop.extra.push({n:nom, q:"", rayon:guessRayon(nom), done:false, at:Date.now()});
+    n++;
+  }
+  saveShop(); renderShop(); renderTop();
+  toast(n ? n + " article" + (n>1?"s":"") + " ajouté" + (n>1?"s":"") + " aux courses" : "Déjà dans la liste");
+}
+
+function renderFridge(){
+  const p = P(), f = portionFactor(p), L = fridgeList();
+  const tete = `<div class="frbox">
+      <div class="h2" style="margin:0 0 8px">Ce que j'ai sous la main${L.length ? ` <span class="lnk press" onclick="clearFridge()">tout vider</span>` : ""}</div>
+      <div class="field"><input id="frnew" type="text" placeholder="Courgette, poulet, œufs…" autocomplete="off"
+        oninput="fridgeSug()" onkeydown="if(event.key==='Enter'){addFridge();fridgeSug()}"></div>
+      <div class="chips" id="frsug" style="margin:8px 0 0"></div>
+      <div class="tags">${L.map(x =>
+        `<span class="tagx">${esc(x.n)}<button class="press" onclick="delFridge(${JSON.stringify(x.n).replace(/"/g,"&quot;")})" aria-label="Retirer">×</button></span>`).join("")
+        || `<div class="tiny muted b">Ajoute ce que tu as : je classe les plats par ce qui est déjà chez toi, et je te dis ce qui manque.</div>`}</div>
+    </div>`;
+
+  if(!L.length){
+    document.getElementById("rcount").textContent = "Mon frigo";
+    document.getElementById("rlist").innerHTML = tete;
+    return;
+  }
+  const rk = fridgeRanked(p);
+  const pret = rk.filter(x => !x.c.manque.length).length;
+  document.getElementById("rcount").textContent = pret
+    ? pret + " plat" + (pret>1?"s":"") + " sans rien acheter"
+    : "le plus proche d'abord";
+
+  document.getElementById("rlist").innerHTML = tete + rk.slice(0, 20).map(({r,c,mine,ok}) => {
+    const pc = Math.round(c.taux*100);
+    const e = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f};
+    return `<div class="card rcard frcard ${ok?"":"off"}">
+      <button class="press frmain" onclick="openRecipe('${r.id}')">
+        <div class="em">${emojiOf(r)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="b" style="font-size:14px;display:flex;align-items:center;gap:7px">${qDot(e)}<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.n)}</span></div>
+          <div class="tiny muted b">${r.t} min · ${Math.round(r.nut[0]*f)} kcal${mine?" · à nous":""}${ok?"":" · contient un aliment exclu"}</div>
+        </div>
+      </button>
+      <div class="cov ${c.manque.length?"":"full"}">
+        <div class="covbar"><i style="width:${pc}%"></i></div>
+        <div class="covtx">${c.manque.length
+          ? `<b>${c.ont.length} sur ${c.total}</b> — il manque ${esc(c.manque.slice(0,4).map(x=>x.toLowerCase()).join(", "))}${c.manque.length>4?` et ${c.manque.length-4} autre${c.manque.length-4>1?"s":""}`:""}`
+          : `<b>Tu as tout</b> — plus qu'à cuisiner`}</div>
+        ${c.manque.length ? `<button class="press covadd" onclick="missingToShop('${r.id}')">+ courses</button>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
 function renderRecipes(){
   const p = P(), f = portionFactor(p);
-  const fl = [["all","Toutes"],["fav","♥ Aimées"],["diner","Dîner"],["dej","Déjeuner"],["quick","≤ 25 min"],["veg","Végétarien"],["batch","Se congèle"],["reste","Fait un reste"],["mine","Les nôtres"]];
+  const fl = [["all","Toutes"],["frigo","\ud83e\uddca Mon frigo"],["fav","♥ Aimées"],["diner","Dîner"],["dej","Déjeuner"],["quick","≤ 25 min"],["veg","Végétarien"],["batch","Se congèle"],["reste","Fait un reste"],["mine","Les nôtres"]];
   document.getElementById("rfilters").innerHTML = fl.map(([k,l])=>`<button class="chip ${rfilter===k?"on":""}" onclick="rfilter='${k}';renderRecipes()">${l}</button>`).join("");
+  /* v4.7 : le frigo a sa propre vue — on ne filtre pas, on classe par ce qu'on a.
+     La recherche par mots n'y a pas de sens, et le lien « ajouter la nôtre » non
+     plus : on les retire au lieu de les laisser encombrer l'écran. */
+  const frMode = rfilter === "frigo";
+  document.getElementById("rqbox").style.display = frMode ? "none" : "";
+  document.getElementById("raddmine").style.display = frMode ? "none" : "";
+  if(frMode) return renderFridge();
   const q = norm(rquery);
   const mine = new Set((S.myRecipes||[]).map(r=>r.id));
   let list = allRecipes().filter(r=>{
@@ -3512,9 +3701,15 @@ function ideaCandidates(meal){
   const bm = mealBudget(p, b, meal), f = portionFactor(p);
   const plats = allRecipes()
     .filter(r => recipeOK(r,p) && likeOf(r.id) !== -1 && (meal === "din" ? r.cat !== "dej" : r.cat !== "diner"))
-    .map(r => ({n:r.n, rid:r.id, kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f,
+    .map(r => ({n:r.n, rid:r.id, ingN:r.ing.map(i=>i[0]), kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f,
                 sug:(r.nut[3]||0)*f, sat:(r.nut[4]||0)*f, sugf:(r.nut[5]!=null?r.nut[5]:r.nut[3]||0)*f}))
-    .concat(PLATS_SIMPLES.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing}, compNut(x.ing))));
+    .concat(PLATS_SIMPLES.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing, ingN:x.ing.map(i=>i[0])}, compNut(x.ing))));
+  /* v4.7 — le frigo pèse sur l'ordre, jamais sur l'éligibilité : il départage des
+     plats déjà tenables, il n'en autorise aucun qui ne tienne pas. En dessous de
+     trois articles il ne dit rien d'utile, alors il se tait. */
+  const fst = fridgeStems();
+  const useFr = fst.length >= FRIDGE_MIN;
+  if(useFr) for(const pl of plats) pl.fr = coverOf(pl.ingN, fst);
   const entrees  = ENTREES.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing}, compNut(x.ing)));
   const desserts = DESSERTS.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing}, compNut(x.ing)));
   if(!plats.length) return [];
@@ -3538,7 +3733,8 @@ function ideaCandidates(meal){
       /* On vise 92 % de l'enveloppe : proposer 400 kcal quand il en reste 900
          laisserait faim, et c'est comme ça qu'on craque à 22 h. */
       const score = -Math.abs(remplissage - 0.92) * 100 + prot/6 + fib/4
-                    - Math.max(0, pts - bm.pts) * 8;     /* le dépassement en points coûte cher */
+                    - Math.max(0, pts - bm.pts) * 8      /* le dépassement en points coûte cher */
+                    + (useFr ? (pl.fr ? pl.fr.taux : 0) * 14 : 0);   /* ce qu'on a déjà chez soi */
       out.push({en:en.n?en:null, pl, de:de.n?de:null, kcal, pts, prot, fib, score, forme,
                 depKcal: Math.max(0, Math.round(kcal - bm.kcal)),
                 depPts: Math.max(0, +(pts - bm.pts).toFixed(1))});
@@ -3621,6 +3817,12 @@ function renderIdea(){
   };
   const avert = mots[c.forme] ? `<div class="ideawarn">${mots[c.forme]}</div>` : "";
 
+  /* v4.7 — dire ce que le frigo couvre déjà : c'est souvent ça qui décide. */
+  const fr = (fridgeList().length >= FRIDGE_MIN && c.pl.fr && c.pl.fr.total) ? c.pl.fr : null;
+  const frLine = !fr ? "" : (fr.manque.length
+    ? `<div class="frline">Avec ton frigo : ${fr.ont.length} ingrédient${fr.ont.length>1?"s":""} sur ${fr.total}. Il manque ${esc(fr.manque.slice(0,3).map(x=>x.toLowerCase()).join(", "))}${fr.manque.length>3?" et d'autres":""}.</div>`
+    : `<div class="frline ok">Tu as déjà tout ce qu'il faut pour ce plat.</div>`);
+
   const cours = (lab, x, recette) => !x ? "" : `<div class="cours">
       <div class="lab">${lab}</div>
       <div class="nm">${esc(x.n)}${recette ? ` <span class="lnk press" onclick="closeModal('m-idea');openRecipe('${x.rid}')">la recette</span>` : ""}</div>
@@ -3628,7 +3830,7 @@ function renderIdea(){
       <div class="kc">${num(Math.round(x.kcal))} kcal<em>${fmtPts(compPts(x))}</em></div>
     </div>`;
   const reste = bm.kcal - Math.round(c.kcal), restePts = bm.pts - c.pts;
-  box.innerHTML = avert
+  box.innerHTML = avert + frLine
     + cours("Entrée", c.en, false) + cours("Plat", c.pl, !!c.pl.rid) + cours("Dessert", c.de, false)
     + `<div class="ideatot ${c.depKcal||c.depPts?"over":""}">
         <b>${num(Math.round(c.kcal))} kcal · ${fmtPts(c.pts)}</b>
@@ -4382,6 +4584,18 @@ function mergeStates(a,b){
     if(ra == null || at(rb) > at(ra)) lk[id] = rb;
   }
   out.likes = lk;
+
+  /* v4.7 — le frigo : union article par article, la dernière action gagne. C'est
+     pour ça qu'un retrait laisse une trace : sinon, la fusion ferait revenir les
+     courgettes qu'Anaïs vient de cuisiner. */
+  const fr = new Map((a.fridge||[]).map(x => [norm(x.n||"").trim(), x]));
+  for(const x of (b.fridge||[])){
+    const k = norm(x.n||"").trim(); if(!k) continue;
+    const cur = fr.get(k);
+    if(!cur || (x.at||0) > (cur.at||0)) fr.set(k, x);
+  }
+  const maintenant = Date.now();
+  out.fridge = [...fr.values()].filter(x => x.in || maintenant - (x.at||0) < FRIDGE_KEEP);
 
   /* Produits scannés : union, les plus récents d'abord, bornée. */
   const seen = new Set(); const prods = [];
