@@ -434,6 +434,10 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 
 /* étiquettes (exclusions, placard) */
 .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+/* v4.9 — le sélecteur de convives sur la fiche recette */
+.servs{margin:-2px 0 10px}
+.servs .chip{padding:6px 12px;font-size:13.5px}
+.ing .each{white-space:nowrap}
 /* v4.7 — le frigo et le taux de couverture des recettes */
 .frbox{background:var(--surface);border-radius:var(--r);padding:14px;box-shadow:var(--shadow);margin-bottom:12px}
 .frbox .chips{margin:0}
@@ -930,6 +934,10 @@ details.fold .in{font-size:14.9px;font-weight:700;color:var(--muted);padding-top
   <button class="x" onclick="closeModal('m-pantry')">×</button>
   <h2>Le placard</h2>
   <div class="small muted b" style="margin-top:6px">Ce qu'on a toujours à la maison n'encombre pas la liste de courses. Un mot par ligne : tout ingrédient qui le contient est écarté.</div>
+  <div class="h2" style="margin-top:18px">À table le soir</div>
+  <div class="tiny muted b">Les recettes sont écrites pour une personne. Ce nombre multiplie les quantités envoyées dans la liste de courses, et ouvre les fiches sur la bonne dose.</div>
+  <div class="chips" id="foyerchips" style="margin-top:9px"></div>
+
   <div class="field" style="margin-top:12px"><input id="pantrynew" type="text" placeholder="Ajouter — riz, beurre…" onkeydown="if(event.key==='Enter')addPantry()"></div>
   <button class="btn g sm w press" onclick="addPantry()">Ajouter au placard</button>
   <div class="tags" id="pantrytags"></div>
@@ -2152,7 +2160,7 @@ if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assig
    leur emoji dans le champ e, que emojiOf() sait lire. */
 if(typeof RECIPES_V4 !== "undefined"){ RECIPES.push(...RECIPES_V4); }
 
-const VERSION = "4.8";
+const VERSION = "5.0";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -2179,6 +2187,7 @@ function migrate(s){
   s.settings = s.settings || {};
   if(s.me === undefined) s.me = null;
   if(!s.settings.theme) s.settings.theme = "auto";
+  if(!s.settings.foyer) s.settings.foyer = 2;   /* personnes à table le soir */
   if(s.settings.scriptUrl === undefined) s.settings.scriptUrl = "";
   s.shop = s.shop || {};
   s.shop.checked = s.shop.checked || {};
@@ -2377,7 +2386,18 @@ function calcBudget(p){
   const sat = Math.round(kcal*0.10/9);
   return {kcal, prot, fib, sug, sat, reserve, tdee:Math.round(tdee)};
 }
-function portionFactor(p){ if(!p.budget) return 1; return Math.min(1.45, Math.max(0.85, (p.budget.kcal*0.36)/520)); }
+/* v4.9 — Vincent : « il faut que les doses et les kcal soient faites pour UNE
+   personne ; comme ça, pour enregistrer et pour préparer, il n'y a qu'à multiplier
+   par le nombre de personnes. »
+
+   Avant, chaque recette était secrètement redimensionnée selon la corpulence de
+   celui qui regardait (de ×0,85 à ×1,45) : deux téléphones affichaient deux
+   nombres différents pour le même plat, et « 150 g de poulet » devenait « 218 g »
+   sans le dire. Une recette vaut désormais une personne, point. Les
+   multiplications sont explicites et visibles : le sélecteur de la fiche pour
+   cuisiner, le nombre de convives pour les courses, le multiplicateur de la ligne
+   pour ce qu'on a réellement mangé. */
+function foyer(){ const n = +(S.settings||{}).foyer; return n >= 1 && n <= 12 ? n : 2; }
 function dayOf(p,k){ return p.days[k] || blankDay(); }
 function ensureDay(p,k){ if(!p.days[k]) p.days[k] = blankDay(); const d=p.days[k];
   d.meals = d.meals || {pdj:[],dej:[],din:[],ext:[]}; d.acts = d.acts || [];
@@ -3017,9 +3037,14 @@ function openAdd(meal){
   document.getElementById("addtitle").textContent = (editing ? "Modifier — " : "") + (MEALS.find(m=>m[0]===addMeal)||["","Ajouter"])[1];
   document.getElementById("q").value = "";
   addTab("food");
-  document.getElementById("a-pick").style.display="none"; picked=null;
+  document.getElementById("a-pick").style.display="none"; picked=null; pkRecipe=null;
   /* on remet le sélecteur dans son état standard, au cas où on sorte d'une édition de portion */
-  document.getElementById("pkmode").style.display = "";
+  const seg = document.getElementById("pkmode");
+  seg.style.display = "";
+  seg.children[0].textContent = "En parts";   seg.children[0].onclick = ()=>pkMode("u");
+  seg.children[1].textContent = "En grammes"; seg.children[1].onclick = ()=>pkMode("g");
+  document.getElementById("pkun").textContent = "part";
+  document.getElementById("pkuwlab").textContent = "Poids d'une part (g)";
   document.getElementById("pkuwlab").parentNode.style.display = "";
   document.getElementById("pkbtn").onclick = confirmPick;
   document.getElementById("pkn").oninput = pickPreview;
@@ -3260,6 +3285,33 @@ function pkStep(d){
   el.value = (Math.round(v*2)/2).toString().replace(".",",");
   pickPreview();
 }
+/* ===================== v5.0 — le poids réellement mangé =====================
+   Vincent : « pour enregistrer la recette mangée, il faudrait pouvoir choisir le
+   poids réellement mangé. Si je mange 200 g et Anaïs 150 g, ça fonctionne. »
+
+   Une portion ne dit rien tant qu'on ne sait pas ce qu'elle pèse. On estime donc
+   le poids d'une assiette à partir des ingrédients — et on laisse la balance
+   avoir le dernier mot : un poids corrigé est mémorisé et partagé. */
+
+/* Les féculents et légumineuses SECS gonflent à la cuisson. Sans ce coefficient,
+   une assiette de pâtes serait annoncée à 70 g et 200 g mangés vaudraient trois
+   assiettes. Le reste est laissé tel quel : la perte d'eau des viandes dépend
+   trop de la cuisson pour être devinée, et le « ≈ » de l'affichage le dit. */
+const GONFLE = 2.6;
+function ingGrams(nom, q, u){
+  if(u === "g" || u === "ml") return /\((sec|secs|sèche|sèches)\)|\bsecs?\b/i.test(nom) ? q*GONFLE : q;
+  const f = FOODS.find(x => x[0] === nom);
+  if(!f || !(f[6] > 0)) return 0;                 /* assaisonnement : poids négligeable */
+  return q * f[6];
+}
+/* Estimation depuis les ingrédients. */
+function recipeGramsEst(r){
+  return Math.round((r.ing||[]).reduce((a,[n,q,u]) => a + ingGrams(n,q,u), 0));
+}
+/* Ce qu'on utilise vraiment : le poids pesé s'il existe, l'estimation sinon. */
+function recipeWeight(r){ return unitWeightMemo("assiette " + r.n) || recipeGramsEst(r); }
+function recipeWeighed(r){ return !!unitWeightMemo("assiette " + r.n); }
+
 /* v4.0 — le poids d'une part est horodaté pour que la synchro sache qui a mesuré
    en dernier. Les anciennes valeurs sont des nombres nus : toujours lisibles. */
 function unitWeightMemo(name){
@@ -3309,6 +3361,7 @@ function pickGrams(){
   return Math.round(n*uw);
 }
 function pickPreview(){
+  if(pkRecipe) return pickPreviewRecipe(pkRecipe);
   if(!picked) return;
   const g = pickGrams();
   const el = document.getElementById("pkcal");
@@ -3391,44 +3444,83 @@ function editEntry(meal, i){
   showPick(g, e.uw||null);
 }
 
-/* Ajuster la portion d'un plat déjà logué depuis une recette */
-let editingRecipe = null;
+/* Ajuster la portion d'un plat déjà logué depuis une recette.
+   v5.0 : deux façons de dire la même chose — en assiettes ou en grammes. Vincent
+   sert 200 g, Anaïs 150 g, et chacun enregistre son poids sur son téléphone. */
+let editingRecipe = null, pkRecipe = null;
 function openRecipePortion(e){
   const r = recipeById(e.rid);
   addMeal = editingRecipe.meal;
   openAdd(editingRecipe.meal);
+  pkRecipe = e;
+  const w = r ? recipeWeight(r) : (e.pw || 0);
   document.getElementById("a-pick").style.display = "";
   document.getElementById("pkname").textContent = e.n;
-  document.getElementById("pkinfo").innerHTML = `<div class="tiny muted b" style="margin-top:6px">Portion de recette. Ajuste la part que tu as réellement mangée.</div>`;
-  document.getElementById("pkmode").style.display = "none";
-  document.getElementById("pk-g").style.display = "none";
-  document.getElementById("pk-u").style.display = "";
-  document.getElementById("pkun").textContent = "portion";
-  document.getElementById("pkuwlab").parentNode.style.display = "none";
-  document.getElementById("pkhint").textContent = "";
+  document.getElementById("pkinfo").innerHTML = `<div class="tiny muted b" style="margin-top:6px">Une assiette${w?` ${recipeWeighed(r)?"pèse":"pèse environ"} <b>${num(w)} g</b>`:""}. Dis en assiettes ou en grammes ce que tu as réellement mangé.</div>`;
+  const seg = document.getElementById("pkmode");
+  seg.style.display = w ? "" : "none";
+  seg.children[0].textContent = "En assiettes";
+  seg.children[1].textContent = "En grammes";
+  seg.children[0].onclick = ()=>pkMode("u");
+  seg.children[1].onclick = ()=>pkMode("g");
+  document.getElementById("pkun").textContent = "assiette";
+  document.getElementById("pkuwlab").textContent = "Poids d'une assiette (g)";
+  document.getElementById("pkuwlab").parentNode.style.display = w ? "" : "none";
+  document.getElementById("pkuw").value = w || "";
+  document.getElementById("pkhint").textContent = w
+    ? (recipeWeighed(r) ? "Poids que vous avez pesé — corrigible ici." : "Estimé depuis les ingrédients. Pèse ton assiette une fois et corrige : c'est mémorisé et partagé.")
+    : "";
   document.getElementById("pkn").value = (e.mult||1).toString().replace(".",",");
-  pkModeCur = "r";
-  pickPreviewRecipe(e);
-  document.getElementById("pkn").oninput = ()=>pickPreviewRecipe(e);
+  document.getElementById("pkg").value = w ? Math.round((e.mult||1)*w) : "";
+  document.getElementById("pkn").oninput = pickPreview;
+  pkMode("u");
   document.getElementById("pkbtn").textContent = "Enregistrer la modification";
   document.getElementById("pkbtn").onclick = ()=>saveRecipePortion(e);
 }
+/* Combien d'assiettes, quel que soit le mode de saisie. */
+function recipeMult(e){
+  const r = recipeById(e.rid), w = (numFR("pkuw") || (r ? recipeWeight(r) : 0));
+  if(pkModeCur === "g"){
+    const g = numFR("pkg");
+    if(!g || !w) return null;
+    return g / w;
+  }
+  return numFR("pkn") || 1;
+}
 function pickPreviewRecipe(e){
-  const mult = numFR("pkn")||1;
+  const mult = recipeMult(e);
+  const r = recipeById(e.rid), w = numFR("pkuw") || (r ? recipeWeight(r) : 0);
+  const el = document.getElementById("pkcal");
+  if(mult == null){ el.innerHTML = `<b>—</b><span>indique le poids mangé</span>`; return; }
   const base = e.base || {kcal:e.kcal/(e.mult||1), prot:e.prot/(e.mult||1), fib:e.fib/(e.mult||1)};
   const k = Math.round(base.kcal*mult);
-  document.getElementById("pkcal").innerHTML = `${qDot({kcal:k,prot:base.prot*mult,fib:base.fib*mult})}<b>${num(k)} kcal</b><span>${Math.round(base.prot*mult)} g protéines · ${Math.round(base.fib*mult)} g fibres</span>`;
+  /* On affiche toujours l'autre unité : c'est ce qui rend la conversion vérifiable. */
+  const autre = w ? (pkModeCur === "g"
+      ? ` · ${(Math.round(mult*100)/100).toString().replace(".",",")} assiette${mult>1?"s":""}`
+      : ` · ${num(Math.round(mult*w))} g`) : "";
+  el.innerHTML = `${qDot({kcal:k,prot:base.prot*mult,fib:base.fib*mult})}<b>${num(k)} kcal</b><span>${Math.round(base.prot*mult)} g protéines · ${Math.round(base.fib*mult)} g fibres${autre}</span>`;
 }
 function saveRecipePortion(e){
-  const mult = numFR("pkn")||1;
+  const r0 = recipeById(e.rid);
+  const w = numFR("pkuw");
+  /* Un poids corrigé à la main vaut pour toutes les fois suivantes, sur les deux
+     téléphones : c'est une mesure, pas une préférence. */
+  if(r0 && w && w > 0 && w !== recipeGramsEst(r0)) rememberUnitWeight("assiette " + r0.n, w);
+  const mult = recipeMult(e);
+  if(mult == null) return toast("Indique le poids mangé");
   const base = e.base || {kcal:e.kcal/(e.mult||1), prot:e.prot/(e.mult||1), fib:e.fib/(e.mult||1), sug:(e.sug||0)/(e.mult||1), sat:(e.sat||0)/(e.mult||1), sugf:(e.sugf||0)/(e.mult||1)};
+  const pw = (w && w > 0) ? w : (r0 ? recipeWeight(r0) : e.pw);
+  const enG = pkModeCur === "g" && pw;
+  const grammes = pw ? Math.round(mult*pw) : null;
+  const nom = e.n.replace(/ \(×[\d,]+\)$/,"").replace(/ \(\d+ g\)$/,"");
   const d = ensureDay(P(), curDay);
   d.meals[editingRecipe.meal][editingRecipe.i] = {
-    n: e.n.replace(/ \(×[\d,]+\)$/,"") + (mult===1?"":" (×"+String(mult).replace(".",",")+")"),
-    q: (mult%1?mult.toFixed(1).replace(".",","):mult) + " portion" + (mult>1?"s":""),
+    n: nom + (enG ? " ("+grammes+" g)" : mult===1 ? "" : " (×"+(Math.round(mult*100)/100).toString().replace(".",",")+")"),
+    q: enG ? grammes + " g"
+           : (mult%1 ? (Math.round(mult*100)/100).toString().replace(".",",") : mult) + " assiette" + (mult>1?"s":""),
     kcal: base.kcal*mult, prot: base.prot*mult, fib: base.fib*mult,
     sug: (base.sug||0)*mult, sat: (base.sat||0)*mult, sugf: (base.sugf||0)*mult,
-    rid: e.rid, mult, base
+    rid: e.rid, mult, base, pw
   };
   editingRecipe = null;
   document.getElementById("pkbtn").onclick = confirmPick;
@@ -4033,7 +4125,7 @@ function missingToShop(rid){
 }
 
 function renderFridge(){
-  const p = P(), f = portionFactor(p), L = fridgeList();
+  const p = P(), L = fridgeList();
   const tete = `<div class="frbox">
       <div class="h2" style="margin:0 0 8px">Ce que j'ai sous la main${L.length ? ` <span class="lnk press" onclick="clearFridge()">tout vider</span>` : ""}</div>
       <div class="field"><input id="frnew" type="text" placeholder="Courgette, poulet, œufs…" autocomplete="off"
@@ -4057,13 +4149,13 @@ function renderFridge(){
 
   document.getElementById("rlist").innerHTML = tete + rk.slice(0, 20).map(({r,c,mine,ok}) => {
     const pc = Math.round(c.taux*100);
-    const e = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f};
+    const e = {kcal:r.nut[0], prot:r.nut[1], fib:r.nut[2]};
     return `<div class="card rcard frcard ${ok?"":"off"}">
       <button class="press frmain" onclick="openRecipe('${r.id}')">
         <div class="em">${emojiOf(r)}</div>
         <div style="flex:1;min-width:0">
           <div class="b" style="font-size:14px;display:flex;align-items:center;gap:7px">${qDot(e)}<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.n)}</span></div>
-          <div class="tiny muted b">${r.t} min · ${Math.round(r.nut[0]*f)} kcal${mine?" · à nous":""}${ok?"":" · contient un aliment exclu"}</div>
+          <div class="tiny muted b">${r.t} min · ${Math.round(r.nut[0])} kcal${mine?" · à nous":""}${ok?"":" · contient un aliment exclu"}</div>
         </div>
       </button>
       <div class="cov ${c.manque.length?"":"full"}">
@@ -4078,7 +4170,7 @@ function renderFridge(){
 }
 
 function renderRecipes(){
-  const p = P(), f = portionFactor(p);
+  const p = P();
   const fl = [["all","Toutes"],["frigo","\ud83e\uddca Mon frigo"],["fav","♥ Aimées"],["diner","Dîner"],["dej","Déjeuner"],["quick","≤ 25 min"],["veg","Végétarien"],["batch","Se congèle"],["reste","Fait un reste"],["mine","Les nôtres"]];
   document.getElementById("rfilters").innerHTML = fl.map(([k,l])=>`<button class="chip ${rfilter===k?"on":""}" onclick="rfilter='${k}';renderRecipes()">${l}</button>`).join("");
   /* v4.7 : le frigo a sa propre vue — on ne filtre pas, on classe par ce qu'on a.
@@ -4106,14 +4198,14 @@ function renderRecipes(){
   document.getElementById("rcount").textContent = list.length + " plat" + (list.length>1?"s":"");
   document.getElementById("rlist").innerHTML = list.length ? list.map(r=>{
     const ok = recipeOK(r,p), lk = likeOf(r.id);
-    const e = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f};
+    const e = {kcal:r.nut[0], prot:r.nut[1], fib:r.nut[2]};
     return `<div class="card rcard ${ok?"":"off"}" style="align-items:center">
       <button class="press" style="flex:1;display:flex;gap:12px;align-items:center;background:none;border:0;padding:0;font-family:inherit;text-align:left;min-width:0" onclick="openRecipe('${r.id}')">
         <div class="em">${emojiOf(r)}</div>
         <div style="flex:1;min-width:0">
           <div class="b" style="font-size:14px;display:flex;align-items:center;gap:7px">${qDot(e)}<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.n)}</span></div>
           <div class="tiny muted b">${r.t} min · ${r.cat==="dej"?"déjeuner":r.cat==="both"?"midi ou soir":"dîner"}${mine.has(r.id)?" · à nous":""}${r.tags.includes("reste pour le lendemain")?" · fait un reste":""}${ok?"":" · contient un aliment exclu"}${likeWho(r.id)?" · "+esc(likeWho(r.id)):""}</div>
-          <div class="nut"><span><b>${Math.round(r.nut[0]*f)}</b> kcal</span><span class="tiny muted b">${Math.round(r.nut[1]*f)} g prot · ${Math.round(r.nut[2]*f)} g fibres</span></div>
+          <div class="nut"><span><b>${Math.round(r.nut[0])}</b> kcal</span><span class="tiny muted b">${Math.round(r.nut[1])} g prot · ${Math.round(r.nut[2])} g fibres</span></div>
         </div>
       </button>
       <div class="heart">
@@ -4195,23 +4287,39 @@ function plannedDays(id){
   return S.menus.days.filter(d=>d.din===id||d.dej===id)
     .map(d=>`${parseKey(d.d).toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")} ${fmtShort(d.d)}${d.din===id?" soir":" midi"}`);
 }
+const PLURQ = {"pièce":"pièces","gousse":"gousses","pincée":"pincées"};
 function fmtQ(q,u,f){
   let v = q*f;
-  if(["pièce","gousse","c. à s.","c. à c.","pincée"].includes(u)){ v=Math.round(v*2)/2; return (v%1?v.toFixed(1).replace(".",","):v)+" "+u; }
+  if(["pièce","gousse","c. à s.","c. à c.","pincée"].includes(u)){
+    v = Math.round(v*2)/2;
+    const un = (v > 1 && PLURQ[u]) ? PLURQ[u] : u;      /* « 2 pincées », pas « 2 pincée » */
+    return (v%1 ? v.toFixed(1).replace(".",",") : v) + " " + un;
+  }
   return Math.round(v/5)*5+" "+u;
 }
+/* Le multiplicateur de la fiche : combien de personnes on sert ce soir. Il ne
+   touche QUE les quantités d'ingrédients — les valeurs nutritionnelles restent
+   celles d'une assiette, puisque c'est une assiette qu'on mange. */
+let rServ = 0;
+function setServ(n){ rServ = n; if(curRecipe) openRecipe(curRecipe); }
+let curRecipe = null;
 function openRecipe(id){
   const r = recipeById(id), p1=S.profiles.p1, p2=S.profiles.p2;
-  const f1 = portionFactor(p1), f2 = portionFactor(p2), f = portionFactor(P());
+  curRecipe = id;
+  if(!rServ) rServ = foyer();
+  const nb = rServ;
   document.getElementById("rsheet").innerHTML = `
     <div class="grab"></div><button class="x" onclick="closeModal('m-recipe')">×</button>
     <div style="font-size:44px;line-height:1.1">${emojiOf(r)}</div>
     <h2>${esc(r.n)}</h2>
-    <div class="small muted b">${r.t} min · portion ${esc(P().name)} : ${Math.round(r.nut[0]*f)} kcal · ${Math.round(r.nut[1]*f)} g prot · ${Math.round(r.nut[2]*f)} g fibres</div>
-    <div class="tiny muted b" style="margin-top:3px">${Math.round((r.nut[3]||0)*f)} g de sucres${(r.nut[5]||0) < (r.nut[3]||0) ? ` (dont ${Math.round((r.nut[5]||0)*f)} g ajoutés)` : ""} · ${(Math.round((r.nut[4]||0)*f*10)/10).toString().replace(".",",")} g de saturées · ${fmtP(ptsOf(r.nut[0]*f,r.nut[1]*f,r.nut[2]*f,(r.nut[5]||0)*f,(r.nut[4]||0)*f))} points ${qDot({kcal:r.nut[0]*f,prot:r.nut[1]*f,fib:r.nut[2]*f,per:{prot:r.nut[1]/(r.nut[0]/100), fib:r.nut[2]/(r.nut[0]/100), sugf:(r.nut[5]||0)/(r.nut[0]/100), sug:(r.nut[3]||0)/(r.nut[0]/100), sat:(r.nut[4]||0)/(r.nut[0]/100)}})}</div>
-    <div class="h2" style="margin-top:16px">Ingrédients pour deux</div>
-    ${r.ing.map(i=>`<div class="ing"><span style="flex:1">${esc(i[0])}</span><span class="b">${fmtQ(i[1],i[2],f1+f2)}</span><span class="each">${fmtQ(i[1],i[2],f1)} / ${fmtQ(i[1],i[2],f2)}</span></div>`).join("")}
-    <div class="tiny muted b" style="margin-top:7px">Total pour deux, puis la part de ${esc(p1.name)} / ${esc(p2.name)} à l'assiette.</div>
+    <div class="small muted b">${r.t} min · <b>pour une personne</b> : ${Math.round(r.nut[0])} kcal · ${Math.round(r.nut[1])} g prot · ${Math.round(r.nut[2])} g fibres${recipeWeight(r)?` · ${recipeWeighed(r)?"":"≈ "}${num(recipeWeight(r))} g dans l'assiette`:""}</div>
+    <div class="tiny muted b" style="margin-top:3px">${Math.round(r.nut[3]||0)} g de sucres${(r.nut[5]||0) < (r.nut[3]||0) ? ` (dont ${Math.round(r.nut[5]||0)} g ajoutés)` : ""} · ${(Math.round((r.nut[4]||0)*10)/10).toString().replace(".",",")} g de saturées · ${fmtP(ptsOf(r.nut[0],r.nut[1],r.nut[2],r.nut[5]||0,r.nut[4]||0))} points ${qDot({kcal:r.nut[0],prot:r.nut[1],fib:r.nut[2],per:{prot:r.nut[1]/(r.nut[0]/100), fib:r.nut[2]/(r.nut[0]/100), sugf:(r.nut[5]||0)/(r.nut[0]/100), sug:(r.nut[3]||0)/(r.nut[0]/100), sat:(r.nut[4]||0)/(r.nut[0]/100)}})}</div>
+    <div class="h2" style="margin-top:16px">Ingrédients <span class="lnk">pour ${nb} personne${nb>1?"s":""}</span></div>
+    <div class="chips servs">${[1,2,3,4,6,8].map(x=>`<button class="chip ${x===nb?"on":""}" onclick="setServ(${x})">×${x}</button>`).join("")}</div>
+    ${r.ing.map(i=>`<div class="ing"><span style="flex:1">${esc(i[0])}</span><span class="b">${fmtQ(i[1],i[2],nb)}</span>${nb>1?`<span class="each">${fmtQ(i[1],i[2],1)} par personne</span>`:""}</div>`).join("")}
+    <div class="tiny muted b" style="margin-top:7px">${nb===1
+      ? "Une assiette. Touche un multiplicateur pour cuisiner à plusieurs."
+      : "Quantités totales à acheter et à cuisiner. Les calories affichées plus haut sont celles d'<b>une</b> assiette."}</div>
     <div class="h2">Préparation</div>
     ${r.steps.map((s,i)=>`<div class="step"><div class="n">${i+1}</div><div class="t">${esc(s)}</div></div>`).join("")}
     ${exclNote(r)}
@@ -4227,14 +4335,17 @@ function openRecipe(id){
       <button class="btn g sm press" onclick="logRecipe('${r.id}','dej')">…ce midi</button>
     </div>
     ${plannedDays(r.id).length ? `<div class="tiny muted b" style="margin-top:9px">Déjà au menu : ${plannedDays(r.id).map(x=>esc(x)).join(" · ")}</div>` : ""}
-    <div class="tiny muted b" style="margin-top:9px">Programmer = l'inscrire au menu d'un jour et envoyer ses ingrédients dans la liste de courses. Le reste ajoute la portion directement à ton journal du jour.</div>`;
+    <div class="tiny muted b" style="margin-top:9px">Programmer = l'inscrire au menu d'un jour et envoyer ses ingrédients dans la liste de courses, multipliés par le nombre de personnes à table. « Je l'ai mangé » ajoute <b>une</b> assiette à ton journal ; touche ensuite le « ⋯ » de la ligne pour dire le poids réellement servi — en grammes si tu as pesé.</div>`;
   openModal("m-recipe");
 }
 function logRecipe(id,meal){
-  const r = recipeById(id), f = portionFactor(P());
+  const r = recipeById(id);
   closeModal("m-recipe");
-  const base = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f, sug:(r.nut[3]||0)*f, sat:(r.nut[4]||0)*f, sugf:(r.nut[5]||0)*f};
-  pushEntry(meal, {n:r.n, q:"1 portion", kcal:base.kcal, prot:base.prot, fib:base.fib, sug:base.sug, sat:base.sat, sugf:base.sugf, rid:r.id, mult:1, base});
+  /* Une portion = la recette. Si l'on s'est resservi, le « ⋯ » de la ligne
+     ajuste le multiplicateur : 1,5 portion s'écrit et se calcule. */
+  const base = {kcal:r.nut[0], prot:r.nut[1], fib:r.nut[2], sug:r.nut[3]||0, sat:r.nut[4]||0, sugf:r.nut[5]||0};
+  const pw = recipeWeight(r);
+  pushEntry(meal, {n:r.n, q:"1 assiette", kcal:base.kcal, prot:base.prot, fib:base.fib, sug:base.sug, sat:base.sat, sugf:base.sugf, rid:r.id, mult:1, base, pw});
   go("today");
 }
 
@@ -4307,11 +4418,11 @@ function mealBudget(p, b, meal){
    faire. On descend maintenant les marches une par une, et on dit laquelle. */
 function ideaCandidates(meal){
   const p = P(), b = p.budget; if(!b) return [];
-  const bm = mealBudget(p, b, meal), f = portionFactor(p);
+  const bm = mealBudget(p, b, meal);
   const plats = allRecipes()
     .filter(r => recipeOK(r,p) && likeOf(r.id) !== -1 && (meal === "din" ? r.cat !== "dej" : r.cat !== "diner"))
-    .map(r => ({n:r.n, rid:r.id, ingN:r.ing.map(i=>i[0]), kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f,
-                sug:(r.nut[3]||0)*f, sat:(r.nut[4]||0)*f, sugf:(r.nut[5]!=null?r.nut[5]:r.nut[3]||0)*f}))
+    .map(r => ({n:r.n, rid:r.id, ingN:r.ing.map(i=>i[0]), kcal:r.nut[0], prot:r.nut[1], fib:r.nut[2],
+                sug:r.nut[3]||0, sat:r.nut[4]||0, sugf:(r.nut[5]!=null?r.nut[5]:r.nut[3]||0)}))
     .concat(PLATS_SIMPLES.filter(x=>compOK(x,p)).map(x => Object.assign({n:x.n, ing:x.ing, ingN:x.ing.map(i=>i[0])}, compNut(x.ing))));
   /* v4.7 — le frigo pèse sur l'ordre, jamais sur l'éligibilité : il départage des
      plats déjà tenables, il n'en autorise aucun qui ne tienne pas. En dessous de
@@ -4454,7 +4565,7 @@ function renderIdea(){
    exactement comme si elle les avait saisies à la main. */
 function logIdea(){
   const c = ideaList[ideaIdx]; if(!c) return;
-  const p = P(), f = portionFactor(p);
+  const p = P();
   const pushComp = x => {
     for(const [nom,g] of x.ing){
       const fd = FOODS.find(y=>y[0]===nom); if(!fd) continue;
@@ -4468,10 +4579,10 @@ function logIdea(){
   if(c.en) pushComp(c.en);
   if(c.pl.rid){
     const r = recipeById(c.pl.rid);
-    const base = {kcal:r.nut[0]*f, prot:r.nut[1]*f, fib:r.nut[2]*f, sug:(r.nut[3]||0)*f,
-                  sat:(r.nut[4]||0)*f, sugf:(r.nut[5]||0)*f};
-    pushEntry(ideaMeal, {n:r.n, q:"1 portion", kcal:base.kcal, prot:base.prot, fib:base.fib,
-                         sug:base.sug, sat:base.sat, sugf:base.sugf, rid:r.id, mult:1, base});
+    const base = {kcal:r.nut[0], prot:r.nut[1], fib:r.nut[2], sug:r.nut[3]||0,
+                  sat:r.nut[4]||0, sugf:r.nut[5]||0};
+    pushEntry(ideaMeal, {n:r.n, q:"1 assiette", kcal:base.kcal, prot:base.prot, fib:base.fib,
+                         sug:base.sug, sat:base.sat, sugf:base.sugf, rid:r.id, mult:1, base, pw:recipeWeight(r)});
   } else pushComp(c.pl);
   if(c.de) pushComp(c.de);
   closeModal("m-idea");
@@ -4564,7 +4675,6 @@ function openPickDish(i, slot){
 function renderPickDish(){
   const d = S.menus.days[pdDay], cur = d[pdSlot];
   const q = norm(document.getElementById("pd-q").value.trim());
-  const f2 = portionFactor(S.profiles.p2);
   let list = allRecipes().filter(r => pdSlot==="din" ? r.cat!=="dej" : r.cat!=="diner");
   if(q.length>=2){ const ws=qWords(q); list = list.filter(r => { const h=norm(r.n)+" "+r.ing.map(x=>norm(x[0])).join(" "); return ws.every(w=>h.includes(w)); }); }
   list = list.filter(r=>likeOf(r.id)!==-1 || r.id===cur);
@@ -4574,7 +4684,7 @@ function renderPickDish(){
     list.map(r=>`<div class="pit ${r.id===cur?"on":""}">
       <button class="press" style="flex:1;display:flex;align-items:center;gap:11px;background:none;border:0;padding:0;font-family:inherit;text-align:left;min-width:0;color:inherit" onclick="setDish('${r.id}')">
         <span class="em">${emojiOf(r)}</span>
-        <span class="tx"><b>${esc(r.n)}</b><span>${r.t} min · ${Math.round(r.nut[0]*f2)} kcal · ${Math.round(r.nut[1]*f2)} g prot${likeOf(r.id)===1?" · ♥":""}${r.tags.includes("reste pour le lendemain")?" · fait un reste":""}</span></span>
+        <span class="tx"><b>${esc(r.n)}</b><span>${r.t} min · ${Math.round(r.nut[0])} kcal · ${Math.round(r.nut[1])} g prot${likeOf(r.id)===1?" · ♥":""}${r.tags.includes("reste pour le lendemain")?" · fait un reste":""}</span></span>
       </button>
       <button class="rbook press" title="Voir la recette" onclick="closeModal('m-pickdish');openRecipe('${r.id}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Z"></path><path d="M8 7h7M8 11h7"></path></svg></button>
     </div>`).join("");
@@ -4598,14 +4708,14 @@ function setDish(id){
 function renderMenus(){
   if(rollMenus()) return;
   document.getElementById("menuweek").textContent = fmtShort(S.menus.week);
-  const t = todayKey(), p2 = S.profiles.p2, f2 = portionFactor(p2), bud = p2.budget ? p2.budget.kcal : null;
+  const t = todayKey(), p2 = S.profiles.p2, bud = p2.budget ? p2.budget.kcal : null;
   const slot = (i, key, lab, id, isLeft) => {
     const r = recipeById(id);
     return `<div class="slot"><span class="lb">${lab}</span>
       <button class="slotbtn press" onclick="openPickDish(${i},'${key}')">
         <span class="em">${r?emojiOf(r):"＋"}</span>
         <span class="nm">${r?esc(r.n):"À choisir"}</span>
-        ${r?`<span class="kc">${Math.round(r.nut[0]*f2)}</span>`:""}
+        ${r?`<span class="kc">${Math.round(r.nut[0])}</span>`:""}
       </button>
       ${r?`<button class="rbook press" title="Voir la recette" onclick="openRecipe('${r.id}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Z"></path><path d="M8 7h7M8 11h7"></path></svg></button>`:""}
       </div>`;
@@ -4614,8 +4724,8 @@ function renderMenus(){
     /* C5 : voir si la journée tient — total prévu pour Anaïs, qui mange les deux repas à la maison */
     const rd = recipeById(d.dej), rn = recipeById(d.din);
     let tot = 0, parts = 0;
-    if(rd){ tot += rd.nut[0]*f2; parts++; }
-    if(rn){ tot += rn.nut[0]*f2; parts++; }
+    if(rd){ tot += rd.nut[0]; parts++; }
+    if(rn){ tot += rn.nut[0]; parts++; }
     let chip = "";
     if(bud && parts){
       const share = parts===2 ? 0.75 : 0.4;         /* les deux repas ≈ 75 % du budget, un seul ≈ 40 % */
@@ -4628,7 +4738,7 @@ function renderMenus(){
       <div class="dn">${parseKey(d.d).toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")}<small>${fmtShort(d.d)}</small>${chip?`<div style="margin-top:5px">${chip}</div>`:""}</div>
       <div style="flex:1;min-width:0">
         ${slot(i,"dej",d.leftover?"Reste de la veille":"Déj. maison",d.dej,d.leftover)}
-        ${slot(i,"din","Dîner ×2",d.din)}
+        ${slot(i,"din","Dîner ×"+foyer(),d.din)}
       </div>
     </div>`;
   }).join("");
@@ -4682,11 +4792,12 @@ function fmtShopQ(q,u){
 function shopList(){
   const out = [];
   if(S.menus){
-    const f1 = portionFactor(S.profiles.p1), f2 = portionFactor(S.profiles.p2), agg = {};
+    const agg = {};
     for(const d of scopeDays()){
-      const add = (id,f)=>{ const r=recipeById(id); if(!r) return; for(const [n,q,u] of r.ing){ const k=n+"|"+u; agg[k]=agg[k]||{n,u,q:0}; agg[k].q+=q*f; } };
-      add(d.din, f1+f2);
-      if(!d.leftover) add(d.dej, f2);   /* un reste ne se rachète pas : il est déjà dans le dîner de la veille */
+      const add = (id,n)=>{ const r=recipeById(id); if(!r) return; for(const [nom,q,u] of r.ing){ const k=nom+"|"+u; agg[k]=agg[k]||{n:nom,u,q:0}; agg[k].q+=q*n; } };
+      /* Le soir, tout le foyer est à table ; le midi, seule Anaïs mange à la maison. */
+      add(d.din, foyer());
+      if(!d.leftover) add(d.dej, 1);    /* un reste ne se rachète pas : il est déjà dans le dîner de la veille */
     }
     for(const x of Object.values(agg)){
       if(inPantry(x.n)) continue;
@@ -4989,6 +5100,9 @@ function delExcl(i){ const p=P(); p.excl.splice(i,1); save(); renderExcl(); rend
 function renderProfile(){
   const p = P();
   const vn = document.getElementById("vnum"); if(vn) vn.textContent = VERSION;
+  const fc = document.getElementById("foyerchips");
+  if(fc) fc.innerHTML = [1,2,3,4,5,6].map(n =>
+    `<button class="chip ${n===foyer()?"on":""}" onclick="setFoyer(${n})">${n}</button>`).join("");
   document.getElementById("pfwho").textContent = esc(p.name);
   document.getElementById("f-name").value = p.name||"";
   document.getElementById("f-sex").value = p.sex||"m";
@@ -5150,6 +5264,12 @@ function setDot(c,info){
   document.getElementById("syncdot").className = "dot " + (c||"");
   const si = document.getElementById("syncinfo");
   if(info && si){ si.textContent = info; si.dataset.live = "1"; }
+}
+function setFoyer(n){
+  S.settings.foyer = Math.min(12, Math.max(1, n|0));
+  rServ = 0;                       /* la fiche repart du nouveau foyer */
+  save(false); renderProfile(); renderShop(); renderTop();
+  toast(S.settings.foyer + " à table le soir");
 }
 function saveScriptUrl(){ S.settings.scriptUrl = document.getElementById("scripturl").value.trim(); save(false); toast("URL enregistrée"); syncNow(true); }
 function queueSync(){ if(!S.settings.scriptUrl) return; clearTimeout(syncT); syncT = setTimeout(()=>syncNow(false), 2500); }
