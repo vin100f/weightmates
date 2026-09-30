@@ -852,6 +852,7 @@ details.fold .in{font-size:14.9px;font-weight:700;color:var(--muted);padding-top
   </div>
 
   <div id="a-food">
+   <div id="a-browse">
     <button class="scanbtn press" style="margin-top:12px" onclick="openScan('add')">
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5.5A1.5 1.5 0 0 1 4.5 4H7M17 4h2.5A1.5 1.5 0 0 1 21 5.5V8M21 16v2.5a1.5 1.5 0 0 1-1.5 1.5H17M7 20H4.5A1.5 1.5 0 0 1 3 18.5V16"></path><path d="M7 12h10"></path></svg>
       <span><b>Scanner un code-barres</b><em>3 millions de produits, avec le Nutri-Score</em></span>
@@ -860,6 +861,7 @@ details.fold .in{font-size:14.9px;font-weight:700;color:var(--muted);padding-top
     <div class="field" style="margin-top:12px"><input id="q" type="search" placeholder="Chercher un aliment ou un produit…" oninput="searchFood()"></div>
     <div id="scanbox"><video id="scanvid" playsinline muted></video></div>
     <div id="alist"></div>
+   </div>
   </div>
 
   <div id="a-free" style="display:none">
@@ -2160,7 +2162,7 @@ if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assig
    leur emoji dans le champ e, que emojiOf() sait lire. */
 if(typeof RECIPES_V4 !== "undefined"){ RECIPES.push(...RECIPES_V4); }
 
-const VERSION = "5.2";
+const VERSION = "5.3";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -3032,8 +3034,21 @@ function delAct(i){ const d=ensureDay(P(),curDay); d.acts.splice(i,1); save(); r
 function pushEntry(meal,e){ const d=ensureDay(P(),curDay); d.meals[meal].push(e); touchRecent(e, meal); save(); renderToday(); renderTop(); checkBadges(); toast(e.n+" ajouté"); }
 
 let addMeal="dej", picked=null, acat="Libres";
+/* v5.3 — Vincent : « quand je clique sur le dîner, je ne peux pas modifier. Il a
+   fallu que je recherche à nouveau, modifie, et enregistre. »
+   La ligne ÉTAIT cliquable, et menait bien à l'éditeur de portion — mais celui-ci
+   s'ouvrait tout en bas de la fenêtre d'ajout, sous le bouton scanner, la barre de
+   recherche et la liste des aliments. On voyait une page de recherche, donc on
+   cherchait. Une modification ne doit montrer que ce qu'on vient modifier. */
+function editOnly(on, titre){
+  const br = document.getElementById("a-browse"), sg = document.getElementById("addseg");
+  if(br) br.style.display = on ? "none" : "";
+  if(sg) sg.style.display = on ? "none" : "";
+  if(on && titre) document.getElementById("addtitle").textContent = titre;
+}
 function openAdd(meal){
   addMeal = meal || defaultMeal();
+  editOnly(false);
   document.getElementById("addtitle").textContent = (editing ? "Modifier — " : "") + (MEALS.find(m=>m[0]===addMeal)||["","Ajouter"])[1];
   document.getElementById("q").value = "";
   addTab("food");
@@ -3433,6 +3448,7 @@ function editEntry(meal, i){
   if(!e) return;
   if(e.rid){                                   /* une portion de recette : on ajuste le multiplicateur */
     editingRecipe = {meal, i, e}; openRecipePortion(e);
+    editOnly(true, "Modifier — " + (MEALS.find(m=>m[0]===meal)||["","repas"])[1]);
     return;
   }
   let per = e.per, g = e.g;
@@ -3444,6 +3460,7 @@ function editEntry(meal, i){
   if(!per || !g){                              /* saisie libre sans poids : on rouvre l'onglet Libre */
     editing = {meal, i, day:curDay, free:true};
     addMeal = meal; openAdd(meal); addTab("free");
+    editOnly(true, "Modifier — " + (MEALS.find(m=>m[0]===meal)||["","repas"])[1]);
     const put = (id,v)=>{ const el=document.getElementById(id); if(el) el.value = v==null ? "" : fmtNum(v); };
     document.getElementById("fr-n").value = e.n;
     document.getElementById("fr-q").value = fmtNum(e.fq || 1);
@@ -3460,6 +3477,7 @@ function editEntry(meal, i){
   picked = {n:e.n, per100:per, unit:e.un||"part", g:e.uw||g, sug100:per.sug, sat100:per.sat,
             code:e.code, ns:e.ns, nova:e.nova, add:e.add, nat:e.nat};
   showPick(g, e.uw||null);
+  editOnly(true, "Modifier — " + (MEALS.find(m=>m[0]===meal)||["","repas"])[1]);
 }
 
 /* Ajuster la portion d'un plat déjà logué depuis une recette.
@@ -4335,7 +4353,7 @@ function openRecipe(id){
       !(r.nut[3]||0) ? ""
       : !(r.nut[5]||0) ? ` (tous naturels)`
       : (r.nut[5]||0) < (r.nut[3]||0) ? ` (dont ${Math.round(r.nut[5]||0)} g ajoutés)` : ""} · ${(Math.round((r.nut[4]||0)*10)/10).toString().replace(".",",")} g de saturées · ${fmtP(ptsOf(r.nut[0],r.nut[1],r.nut[2],r.nut[5]||0,r.nut[4]||0))} points ${qDot({kcal:r.nut[0],prot:r.nut[1],fib:r.nut[2],per:{prot:r.nut[1]/(r.nut[0]/100), fib:r.nut[2]/(r.nut[0]/100), sugf:(r.nut[5]||0)/(r.nut[0]/100), sug:(r.nut[3]||0)/(r.nut[0]/100), sat:(r.nut[4]||0)/(r.nut[0]/100)}})}</div>
-    <div class="h2" style="margin-top:16px">Ingrédients <span class="lnk">pour ${nb} personne${nb>1?"s":""}</span></div>
+    <div class="h2" style="margin-top:16px">Ingrédients à acheter <span class="lnk">je cuisine pour ${nb}</span></div>
     <div class="chips servs">${[1,2,3,4,6,8].map(x=>`<button class="chip ${x===nb?"on":""}" onclick="setServ(${x})">×${x}</button>`).join("")}</div>
     ${r.ing.map(i=>`<div class="ing"><span style="flex:1">${esc(i[0])}</span><span class="b">${fmtQ(i[1],i[2],nb)}</span>${nb>1?`<span class="each">${fmtQ(i[1],i[2],1)} par personne</span>`:""}</div>`).join("")}
     <div class="tiny muted b" style="margin-top:7px">${nb===1
