@@ -2160,7 +2160,7 @@ if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assig
    leur emoji dans le champ e, que emojiOf() sait lire. */
 if(typeof RECIPES_V4 !== "undefined"){ RECIPES.push(...RECIPES_V4); }
 
-const VERSION = "5.0";
+const VERSION = "5.2";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -3308,6 +3308,24 @@ function ingGrams(nom, q, u){
 function recipeGramsEst(r){
   return Math.round((r.ing||[]).reduce((a,[n,q,u]) => a + ingGrams(n,q,u), 0));
 }
+/* Le détail, pour que le nombre puisse être expliqué au lieu d'être subi.
+   Anaïs, 30 septembre : « je ne sais pas comment il calcule le poids de la part ». */
+function recipeGramsDetail(r){
+  return (r.ing||[]).map(([n,q,u]) => ({n, g: Math.round(ingGrams(n,q,u)),
+      cuit: (u==="g"||u==="ml") && /\((sec|secs|sèche|sèches)\)|\bsecs?\b/i.test(n)}))
+    .filter(x => x.g > 0).sort((a,b) => b.g - a.g);
+}
+/* Calibration : on pèse le plat entier une fois, on dit pour combien de personnes,
+   et l'appli en déduit le poids d'une assiette. Mémorisé et partagé. */
+function calibRecipe(id){
+  const r = recipeById(id); if(!r) return;
+  const tot = numFR("rcalw"), nb = numFR("rcaln") || 1;
+  if(!tot || tot <= 0) return toast("Indique le poids du plat entier");
+  rememberUnitWeight("assiette " + r.n, tot/nb);
+  save(false);
+  toast("Une assiette : " + num(Math.round(tot/nb)) + " g");
+  openRecipe(id);
+}
 /* Ce qu'on utilise vraiment : le poids pesé s'il existe, l'estimation sinon. */
 function recipeWeight(r){ return unitWeightMemo("assiette " + r.n) || recipeGramsEst(r); }
 function recipeWeighed(r){ return !!unitWeightMemo("assiette " + r.n); }
@@ -4313,7 +4331,10 @@ function openRecipe(id){
     <div style="font-size:44px;line-height:1.1">${emojiOf(r)}</div>
     <h2>${esc(r.n)}</h2>
     <div class="small muted b">${r.t} min · <b>pour une personne</b> : ${Math.round(r.nut[0])} kcal · ${Math.round(r.nut[1])} g prot · ${Math.round(r.nut[2])} g fibres${recipeWeight(r)?` · ${recipeWeighed(r)?"":"≈ "}${num(recipeWeight(r))} g dans l'assiette`:""}</div>
-    <div class="tiny muted b" style="margin-top:3px">${Math.round(r.nut[3]||0)} g de sucres${(r.nut[5]||0) < (r.nut[3]||0) ? ` (dont ${Math.round(r.nut[5]||0)} g ajoutés)` : ""} · ${(Math.round((r.nut[4]||0)*10)/10).toString().replace(".",",")} g de saturées · ${fmtP(ptsOf(r.nut[0],r.nut[1],r.nut[2],r.nut[5]||0,r.nut[4]||0))} points ${qDot({kcal:r.nut[0],prot:r.nut[1],fib:r.nut[2],per:{prot:r.nut[1]/(r.nut[0]/100), fib:r.nut[2]/(r.nut[0]/100), sugf:(r.nut[5]||0)/(r.nut[0]/100), sug:(r.nut[3]||0)/(r.nut[0]/100), sat:(r.nut[4]||0)/(r.nut[0]/100)}})}</div>
+    <div class="tiny muted b" style="margin-top:3px">${Math.round(r.nut[3]||0)} g de sucres${
+      !(r.nut[3]||0) ? ""
+      : !(r.nut[5]||0) ? ` (tous naturels)`
+      : (r.nut[5]||0) < (r.nut[3]||0) ? ` (dont ${Math.round(r.nut[5]||0)} g ajoutés)` : ""} · ${(Math.round((r.nut[4]||0)*10)/10).toString().replace(".",",")} g de saturées · ${fmtP(ptsOf(r.nut[0],r.nut[1],r.nut[2],r.nut[5]||0,r.nut[4]||0))} points ${qDot({kcal:r.nut[0],prot:r.nut[1],fib:r.nut[2],per:{prot:r.nut[1]/(r.nut[0]/100), fib:r.nut[2]/(r.nut[0]/100), sugf:(r.nut[5]||0)/(r.nut[0]/100), sug:(r.nut[3]||0)/(r.nut[0]/100), sat:(r.nut[4]||0)/(r.nut[0]/100)}})}</div>
     <div class="h2" style="margin-top:16px">Ingrédients <span class="lnk">pour ${nb} personne${nb>1?"s":""}</span></div>
     <div class="chips servs">${[1,2,3,4,6,8].map(x=>`<button class="chip ${x===nb?"on":""}" onclick="setServ(${x})">×${x}</button>`).join("")}</div>
     ${r.ing.map(i=>`<div class="ing"><span style="flex:1">${esc(i[0])}</span><span class="b">${fmtQ(i[1],i[2],nb)}</span>${nb>1?`<span class="each">${fmtQ(i[1],i[2],1)} par personne</span>`:""}</div>`).join("")}
@@ -4330,22 +4351,74 @@ function openRecipe(id){
     ${likeWho(r.id) ? `<div class="tiny muted b" style="margin-top:7px;text-align:center">${esc(likeWho(r.id))}${likeBy(r.id)!==S.active ? " — un avis retire ou remonte le plat pour vous deux" : ""}</div>` : ""}
     ${(S.myRecipes||[]).some(x=>x.id===r.id) ? `<button class="btn g sm w press" style="margin-top:9px" onclick="closeModal('m-recipe');openMyRecipe('${r.id}')">Modifier cette recette</button>` : ""}
     <button class="btn w press" style="margin-top:12px" onclick="openPlan('${r.id}')">Programmer ce plat sur les 15 jours</button>
+    <div class="h2" style="margin-top:16px">Ce que j'ai mangé</div>
+    ${recipeWeight(r) ? `
+      <div class="tiny muted b" style="margin-bottom:8px">Combien en as-tu pris ? Le plus simple : une fraction d'assiette. Si tu as pesé, mets les grammes.</div>
+      <div class="chips" style="margin-bottom:10px">${[[0.5,"½ assiette"],[0.75,"¾"],[1,"1 assiette"],[1.25,"1 ¼"],[1.5,"1 ½"]].map(([x,lab])=>
+        `<button class="chip" onclick="setServG(${Math.round(recipeWeight(r)*x*10)/10})">${lab}</button>`).join("")}</div>
+      <div class="field"><label>…ou le poids de ma part (g)</label><input id="rsg" type="text" inputmode="decimal" value="${recipeWeight(r)}" oninput="rsPreview('${r.id}')"></div>
+      <div class="pkres" id="rsres" style="margin-top:2px"></div>
+      <details class="done-fold" style="margin-top:9px"><summary>D'où viennent ces ${num(recipeWeight(r))} g ?</summary>
+        <div class="tiny muted b" style="padding:2px 2px 0">
+          ${recipeWeighed(r)
+            ? `C'est le poids que <b>vous avez pesé</b> pour une assiette.`
+            : `C'est la <b>somme des ingrédients</b> d'une portion : ${recipeGramsDetail(r).map(x=>esc(x.n.toLowerCase())+" "+num(x.g)+" g"+(x.cuit?" (une fois cuit)":"")).join(" · ")}.
+               <br><br>C'est un poids <b>avant évaporation</b> : à la casserole ou au four, l'eau part et le plat pèse moins. Si ta part te semble bien plus légère que ce chiffre, ce n'est pas une erreur de calcul — c'est que tu t'es servi moins que la portion entière, ou que le plat a réduit.
+               <br><br><b>Le mieux : pèse le plat une fois.</b> Le poids sera retenu et partagé avec l'autre téléphone.`}
+          <div class="grid2" style="margin-top:9px">
+            <div class="field"><label>Plat entier pesé (g)</label><input id="rcalw" type="text" inputmode="decimal" placeholder="ex. 1000"></div>
+            <div class="field"><label>Pour combien de personnes</label><input id="rcaln" type="text" inputmode="decimal" value="${nb}"></div>
+          </div>
+          <button class="btn g sm w press" style="margin-top:7px" onclick="calibRecipe('${r.id}')">Enregistrer ce poids</button>
+        </div>
+      </details>` : ""}
     <div class="grid2" style="margin-top:9px">
       <button class="btn g sm press" onclick="logRecipe('${r.id}','din')">Je l'ai mangé ce soir</button>
       <button class="btn g sm press" onclick="logRecipe('${r.id}','dej')">…ce midi</button>
     </div>
     ${plannedDays(r.id).length ? `<div class="tiny muted b" style="margin-top:9px">Déjà au menu : ${plannedDays(r.id).map(x=>esc(x)).join(" · ")}</div>` : ""}
-    <div class="tiny muted b" style="margin-top:9px">Programmer = l'inscrire au menu d'un jour et envoyer ses ingrédients dans la liste de courses, multipliés par le nombre de personnes à table. « Je l'ai mangé » ajoute <b>une</b> assiette à ton journal ; touche ensuite le « ⋯ » de la ligne pour dire le poids réellement servi — en grammes si tu as pesé.</div>`;
+    <div class="tiny muted b" style="margin-top:9px">Programmer = l'inscrire au menu d'un jour et envoyer ses ingrédients dans la liste de courses, multipliés par le nombre de personnes à table. « Je l'ai mangé » ajoute le poids indiqué ci-dessus à ton journal ; le « ⋯ » de la ligne permet encore de le corriger après coup.</div>`;
+  if(recipeWeight(r)) rsPreview(r.id);
   openModal("m-recipe");
+}
+/* v5.1 — Anaïs : « je ne peux pas modifier le poids de ma part ensuite. C'est
+   écrit pour 605 g, mais si j'en prends moins ou plus ? »
+   Le réglage existait, mais seulement APRÈS, dans le journal, derrière un « ⋯ »
+   qu'elle ne pouvait pas deviner. Il fallait le mettre là où la question se pose :
+   sur la fiche, au moment de dire qu'on l'a mangé. */
+function setServG(g){
+  const el = document.getElementById("rsg"); if(!el) return;
+  el.value = g; if(curRecipe) rsPreview(curRecipe);
+}
+function rsPreview(id){
+  const r = recipeById(id), el = document.getElementById("rsres"); if(!r || !el) return;
+  const w = recipeWeight(r), g = numFR("rsg");
+  if(!w || !g || g <= 0){ el.innerHTML = `<b>—</b><span>indique le poids de ta part</span>`; return; }
+  const m = g/w, k = Math.round(r.nut[0]*m);
+  const part = Math.abs(m-1) <= 0.02 ? "une assiette entière"
+    : Math.abs(m-0.5) <= 0.02 ? "une demi-assiette"
+    : (Math.round(m*100)/100).toString().replace(".",",") + " assiette" + (m>1?"s":"");
+  el.innerHTML = `${qDot({kcal:k, prot:r.nut[1]*m, fib:r.nut[2]*m})}<b>${num(k)} kcal</b>`
+    + `<span>${part} · ${Math.round(r.nut[1]*m)} g protéines · ${Math.round(r.nut[2]*m)} g fibres · ${fmtPts(ptsOf(r.nut[0]*m,r.nut[1]*m,r.nut[2]*m,(r.nut[5]||0)*m,(r.nut[4]||0)*m))}</span>`;
 }
 function logRecipe(id,meal){
   const r = recipeById(id);
+  /* Le poids saisi sur la fiche fait foi ; sans lui, une assiette entière. */
+  const w = recipeWeight(r);
+  const saisi = document.getElementById("rsg") ? numFR("rsg") : null;
+  const mult = (w && saisi && saisi > 0) ? saisi/w : 1;
+  const enG = !!(w && saisi && saisi > 0);
   closeModal("m-recipe");
   /* Une portion = la recette. Si l'on s'est resservi, le « ⋯ » de la ligne
      ajuste le multiplicateur : 1,5 portion s'écrit et se calcule. */
   const base = {kcal:r.nut[0], prot:r.nut[1], fib:r.nut[2], sug:r.nut[3]||0, sat:r.nut[4]||0, sugf:r.nut[5]||0};
-  const pw = recipeWeight(r);
-  pushEntry(meal, {n:r.n, q:"1 assiette", kcal:base.kcal, prot:base.prot, fib:base.fib, sug:base.sug, sat:base.sat, sugf:base.sugf, rid:r.id, mult:1, base, pw});
+  const grammes = enG ? Math.round(saisi) : null;
+  pushEntry(meal, {
+    n: r.n + (enG && Math.abs(mult-1) > 0.02 ? " ("+grammes+" g)" : ""),
+    q: enG ? grammes+" g" : "1 assiette",
+    kcal: base.kcal*mult, prot: base.prot*mult, fib: base.fib*mult,
+    sug: base.sug*mult, sat: base.sat*mult, sugf: base.sugf*mult,
+    rid: r.id, mult, base, pw: w});
   go("today");
 }
 
