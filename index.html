@@ -995,9 +995,12 @@ details.fold .in{font-size:14.9px;font-weight:700;color:var(--muted);padding-top
     <div class="field"><label>Sucres ajoutés g <span class="tiny muted">facultatif</span></label><input id="mr-sug" type="text" inputmode="decimal"></div>
     <div class="field"><label>Graisses saturées g <span class="tiny muted">facultatif</span></label><input id="mr-sat" type="text" inputmode="decimal"></div>
   </div>
-  <div class="field"><label>Ingrédients — un par ligne : nom ; quantité ; unité</label><textarea id="mr-ing" rows="5" placeholder="Blanc de poulet ; 150 ; g
-Courgette ; 120 ; g
-Huile d'olive ; 1 ; c. à s."></textarea></div>
+  <div class="field"><label>Poids d'une part (g) <span class="tiny muted">pour que les calories ci-dessus correspondent à ce poids</span></label><input id="mr-pw" type="text" inputmode="decimal" placeholder="ex. 240"></div>
+  <div class="field"><label>Ingrédients — un par ligne, en langage normal</label><textarea id="mr-ing" rows="5" placeholder="200 g de potiron
+1 œuf
+25 g d'emmental râpé
+1 c. à soupe de lait
+"></textarea></div>
   <div class="field"><label>Préparation — une étape par ligne</label><textarea id="mr-steps" rows="4" placeholder="Faire revenir l'oignon 5 min.
 Ajouter le poulet et les épices."></textarea></div>
   <button class="btn w press" onclick="saveMyRecipe()">Enregistrer la recette</button>
@@ -2162,7 +2165,7 @@ if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assig
    leur emoji dans le champ e, que emojiOf() sait lire. */
 if(typeof RECIPES_V4 !== "undefined"){ RECIPES.push(...RECIPES_V4); }
 
-const VERSION = "5.3";
+const VERSION = "5.4";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -2269,13 +2272,53 @@ function setLike(id,v){
   save(false);
 }
 /* Pool de génération : on écarte les plats « pas aimés » et on double la chance des « aimés ». */
+/* v5.4 — Anaïs : « ça se duplique chez moi ».
+   Le vivier concaténait les plats aimés une seconde fois pour les favoriser. Après
+   mélange, les deux exemplaires d'un même plat pouvaient tomber tous les deux dans
+   les quinze jours : le plat sortait deux fois. On ne duplique plus — la préférence
+   se joue au classement, jamais en multipliant les entrées. */
 function pickPool(slot, respectExcl){
   const p1 = S.profiles.p1, p2 = S.profiles.p2;
   let pool = allRecipes().filter(r => slot==="din" ? r.cat!=="dej" : r.cat!=="diner");
   if(respectExcl) pool = pool.filter(r => slot==="din" ? (recipeOK(r,p1)&&recipeOK(r,p2)) : recipeOK(r,p2));
-  pool = pool.filter(r => likeOf(r.id) !== -1);
-  const liked = pool.filter(r => likeOf(r.id) === 1);
-  return pool.concat(liked);
+  return pool.filter(r => likeOf(r.id) !== -1);
+}
+
+/* ---------- de quoi construire des menus qui se tiennent (v5.4) ----------
+   Les trois autres demandes d'Anaïs : « au moins un repas par jour avec de la
+   viande », « pas deux gros plats qui coûtent cher le même jour », et des
+   propositions qui ne soient pas « aléatoires ». */
+
+const FAM = [
+  /* Uniquement des mots qui nomment l'ANIMAL ou une pièce qui lui est propre.
+     « tartare » et « côtelette » ne disent rien : un tartare de saumon se faisait
+     classer en bœuf, et affichait un mauvais prix comme une mauvaise famille. */
+  ["boeuf",   ["boeuf","steak","bavette","entrecote","rumsteck","onglet","faux-filet"]],
+  ["veau",    ["veau"]], ["agneau", ["agneau","gigot"]],
+  ["porc",    ["porc","jambon","lardon","saucisse","merguez","echine","travers","boudin","andouillette"]],
+  ["volaille",["poulet","dinde","canard","magret","lapin","volaille"]],
+  ["poisson", ["saumon","cabillaud","colin","thon","sardine","maquereau","truite","bar","dorade","lotte",
+               "sole","limande","espadon","eglefin","haddock","merlan","merlu","raie","hareng","anchoi","poisson"]],
+  ["mer",     ["crevette","moule","huitre","jacque","calamar","encornet","surimi","crabe"]],
+  ["oeufs",   ["oeuf"]],
+  ["legumineuse",["lentille","chiche","haricot","tofu","pois"]]
+];
+const CARNE = new Set(["boeuf","veau","agneau","porc","volaille","poisson","mer"]);
+/* Prix : 3 = pièce chère, 2 = viande ou poisson courant, 1 = œufs, légumineuses, végétarien. */
+const CHER = ["cote de boeuf","entrecote","pave de boeuf","faux-filet","bavette","onglet","tartare de boeuf",
+  "cote de veau","escalope de veau","roti de veau","gigot","cotelette d agneau","agneau",
+  "magret","canard confite","saint-jacques","jacque","lotte","bar","dorade","sole","limande","raie",
+  "espadon","truite","saumon fume","crevette","huitre","crabe","lapin"];
+function motsDe(x){ return norm(x).split(/[^a-z0-9]+/).filter(Boolean).map(w=>w.replace(/s$/,"")); }
+function famOf(r){
+  const mots = new Set([].concat(...(r.ing||[]).map(i=>motsDe(i[0])), motsDe(r.n)));
+  for(const [f, cles] of FAM) if(cles.some(c=>mots.has(c.replace(/s$/,"")))) return f;
+  return "vege";
+}
+function coutOf(r){
+  const h = norm(r.n + " " + (r.ing||[]).map(i=>i[0]).join(" "));
+  if(CHER.some(c => h.includes(norm(c)))) return 3;
+  return CARNE.has(famOf(r)) ? 2 : 1;
 }
 
 /* ---------- eau ---------- */
@@ -3342,8 +3385,14 @@ function calibRecipe(id){
   openRecipe(id);
 }
 /* Ce qu'on utilise vraiment : le poids pesé s'il existe, l'estimation sinon. */
-function recipeWeight(r){ return unitWeightMemo("assiette " + r.n) || recipeGramsEst(r); }
-function recipeWeighed(r){ return !!unitWeightMemo("assiette " + r.n); }
+/* v5.4 — Anaïs : « il faudrait que quand je rentre la recette, je puisse dire que
+   ces données sont pour une part d'un certain nombre de grammes que je définis moi ».
+   Ordre de confiance : ce qu'elle a déclaré, puis ce qui a été pesé, puis l'estimation. */
+function recipeWeight(r){
+  if(r && r.pw > 0) return Math.round(r.pw);
+  return unitWeightMemo("assiette " + r.n) || recipeGramsEst(r);
+}
+function recipeWeighed(r){ return !!(r && r.pw > 0) || !!unitWeightMemo("assiette " + r.n); }
 
 /* v4.0 — le poids d'une part est horodaté pour que la synchro sache qui a mesuré
    en dernier. Les anciennes valeurs sont des nombres nus : toujours lisibles. */
@@ -4280,20 +4329,52 @@ function openMyRecipe(id){
   document.getElementById("mr-f").value = r ? r.nut[2] : "";
   document.getElementById("mr-sug").value = r ? (r.nut[3]||"") : "";
   document.getElementById("mr-sat").value = r ? (r.nut[4]||"") : "";
-  document.getElementById("mr-ing").value = r ? r.ing.map(i=>`${i[0]} ; ${i[1]} ; ${i[2]}`).join("\n") : "";
+  document.getElementById("mr-pw").value = r && r.pw ? r.pw : "";
+  document.getElementById("mr-ing").value = r ? r.ing.map(i=>`${i[1]} ${i[2]} de ${i[0].toLowerCase()}`).join("\n") : "";
   document.getElementById("mr-steps").value = r ? r.steps.join("\n") : "";
   document.getElementById("mr-del").style.display = r ? "" : "none";
   openModal("m-myrecipe");
+}
+/* v5.4 — on ne demande plus « nom ; quantité ; unité » : personne n'écrit comme ça.
+   « 200 g de potiron », « 1 œuf », « 1 c. à soupe de lait » se lisent tels quels.
+   L'ancienne forme à points-virgules continue de fonctionner. */
+const UNITS_TXT = [
+  [/^c(?:\.|uill?[eè]re?s?)?\s*[àa]\s*s(?:\.|oupe)?\b/i, "c. à s."],
+  [/^c(?:\.|uill?[eè]re?s?)?\s*[àa]\s*c(?:\.|af[ée])?\b/i, "c. à c."],
+  [/^(?:g|gr|grammes?)\b/i, "g"], [/^(?:ml|cl|l|litres?)\b/i, "ml"],
+  [/^(?:pinc[ée]es?)\b/i, "pincée"], [/^(?:gousses?)\b/i, "gousse"],
+  [/^(?:tranches?|rondelles?)\b/i, "tranche"], [/^(?:pi[èe]ces?)\b/i, "pièce"]
+];
+function parseIngLine(l){
+  l = l.replace(/^[-•*·\s]+/, "").trim();
+  if(l.includes(";")){                       /* ancienne forme, toujours acceptée */
+    const p = l.split(";").map(x=>x.trim());
+    return [p[0]||"Ingrédient", parseFloat((p[1]||"1").replace(",","."))||1, p[2]||"g"];
+  }
+  const m = /^(\d+(?:[.,]\d+)?)\s*(.*)$/.exec(l);
+  if(!m) return [l, 1, "pièce"];             /* « Sel et poivre » : pas de nombre, pas de poids */
+  let q = parseFloat(m[1].replace(",",".")) || 1, reste = m[2].trim(), unite = "pièce";
+  for(const [re, u] of UNITS_TXT){
+    const mm = re.exec(reste);
+    if(mm){
+      unite = u;
+      if(/^cl\b/i.test(reste)) q *= 10;      /* 20 cl = 200 ml */
+      else if(/^(l|litres?)\b/i.test(reste)) q *= 1000;
+      reste = reste.slice(mm[0].length).trim();
+      break;
+    }
+  }
+  reste = reste.replace(/^(?:de\s+l'|d'|de\s+la\s+|des\s+|du\s+|de\s+)/i, "").trim();
+  reste = reste.replace(/\s*\([^)]*\)\s*$/, "").trim();     /* « (environ 15 ml) » */
+  const nom = reste || "Ingrédient";
+  return [nom.charAt(0).toUpperCase() + nom.slice(1), q, unite];
 }
 function saveMyRecipe(){
   const n = document.getElementById("mr-n").value.trim();
   const kcal = numFR("mr-k")||0;
   if(!n) return toast("Il faut un nom");
   if(!kcal) return toast("Il faut au moins les calories d'une portion");
-  const ing = document.getElementById("mr-ing").value.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
-    const parts = l.split(";").map(x=>x.trim());
-    return [parts[0]||"Ingrédient", parseFloat((parts[1]||"1").replace(",","."))||1, parts[2]||"g"];
-  });
+  const ing = document.getElementById("mr-ing").value.split("\n").map(l=>l.trim()).filter(Boolean).map(parseIngLine);
   const steps = document.getElementById("mr-steps").value.split("\n").map(l=>l.trim()).filter(Boolean);
   const id = document.getElementById("mr-id").value || ("m" + Date.now().toString(36));
   const rec = {
@@ -4302,6 +4383,7 @@ function saveMyRecipe(){
     nut:[kcal, numFR("mr-p")||0, numFR("mr-f")||0,
          numFR("mr-sug")||0, numFR("mr-sat")||0, numFR("mr-sug")||0],
     ing: ing.length?ing:[["À compléter",1,"pièce"]], steps: steps.length?steps:["À compléter."],
+    pw: numFR("mr-pw") || 0,          /* poids d'une part, tel qu'Anaïs le définit */
     e:"🍳", updated: Date.now()
   };
   S.myRecipes = (S.myRecipes||[]).filter(x=>x.id!==id);
@@ -4331,7 +4413,9 @@ function fmtQ(q,u,f){
     const un = (v > 1 && PLURQ[u]) ? PLURQ[u] : u;      /* « 2 pincées », pas « 2 pincée » */
     return (v%1 ? v.toFixed(1).replace(".",",") : v) + " " + un;
   }
-  return Math.round(v/5)*5+" "+u;
+  /* En dessous de 20 g, l'arrondi au multiple de 5 écrit « 0 g » pour 1 g d'épice :
+     Anaïs a vu ses quatre ingrédients affichés à 0 g. */
+  return (v < 20 ? Math.round(v) : Math.round(v/5)*5) + " " + u;
 }
 /* Le multiplicateur de la fiche : combien de personnes on sert ce soir. Il ne
    touche QUE les quantités d'ingrédients — les valeurs nutritionnelles restent
@@ -4715,19 +4799,52 @@ function setPlan(i,slot){
 
 /* ===================== MENUS & COURSES ===================== */
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+/* On choisit SANS REMISE, jour après jour, sous contraintes, et on dit lesquelles
+   on a dû lâcher plutôt que de boucler bêtement sur le vivier. */
 function makeDays(ws, n, from){
-  const p1=S.profiles.p1, p2=S.profiles.p2;
-  const okBoth = r => recipeOK(r,p1) && recipeOK(r,p2);
   let din = shuffle(pickPool("din", true));
   let dej = shuffle(pickPool("dej", true));
   if(!din.length) din = shuffle(pickPool("din", false));
   if(!dej.length) dej = shuffle(pickPool("dej", false));
-  return [...Array(n)].map((_,i)=>{
-    const dn = din.length ? din[i%din.length].id : null;
-    let dj = dej.length ? dej[i%dej.length].id : null;
-    if(dj && dj===dn && dej.length>1) dj = dej[(i+1)%dej.length].id;   /* jamais deux fois le même plat le même jour */
-    return { d: addDays(ws, (from||0)+i), din: dn, dej: dj };
-  });
+  /* Un plat aimé passe devant, sans être dupliqué. */
+  const parGout = (a,b) => likeOf(b.id) - likeOf(a.id);
+  din = din.slice().sort(parGout); dej = dej.slice().sort(parGout);
+
+  const pris = new Set();            /* aucun plat deux fois sur les quinze jours */
+  const famRecentes = [];            /* les familles des deux derniers dîners */
+  const jours = [];
+
+  /* Chaque passe relâche une contrainte de plus. On s'arrête à la première qui donne
+     un plat : c'est la même discipline que la cascade de l'idée de repas. */
+  const choisir = (liste, veut) => {
+    const passes = [
+      r => !pris.has(r.id) && veut(r) && !famRecentes.includes(famOf(r)),
+      r => !pris.has(r.id) && veut(r),
+      r => !pris.has(r.id),
+      () => true
+    ];
+    for(const ok of passes){ const r = liste.find(ok); if(r) return r; }
+    return null;
+  };
+
+  for(let i = 0; i < n; i++){
+    /* Le dîner d'abord : c'est le repas pris à deux. */
+    const dn = choisir(din, r => coutOf(r) <= 3);
+    if(dn){ pris.add(dn.id); famRecentes.push(famOf(dn)); if(famRecentes.length > 2) famRecentes.shift(); }
+
+    /* Le déjeuner ensuite, sous deux contraintes : pas deux plats chers le même
+       jour, et au moins un des deux repas avec de la viande ou du poisson. */
+    const dnCher = dn && coutOf(dn) === 3;
+    const dnCarne = dn && CARNE.has(famOf(dn));
+    const dj = choisir(dej, r =>
+      r.id !== (dn && dn.id) &&
+      !(dnCher && coutOf(r) === 3) &&
+      (dnCarne || CARNE.has(famOf(r))));
+    if(dj) pris.add(dj.id);
+
+    jours.push({ d: addDays(ws, (from||0)+i), din: dn ? dn.id : null, dej: dj ? dj.id : null });
+  }
+  return jours;
 }
 function genMenus(silent){
   const ws = weekStart(todayKey());
