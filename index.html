@@ -436,6 +436,8 @@ h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
 /* v4.9 — le sélecteur de convives sur la fiche recette */
 .servs{margin:-2px 0 10px}
+/* v5.6 — le nombre de convives, créneau par créneau */
+.nbp{display:inline-flex;align-items:center;padding:2px 7px;margin-left:5px;border-radius:8px;background:var(--acc-soft);color:var(--acc);font-size:11.5px;font-weight:900;line-height:1.5}
 .servs .chip{padding:6px 12px;font-size:13.5px}
 .ing .each{white-space:nowrap}
 /* v4.7 — le frigo et le taux de couverture des recettes */
@@ -2165,7 +2167,7 @@ if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assig
    leur emoji dans le champ e, que emojiOf() sait lire. */
 if(typeof RECIPES_V4 !== "undefined"){ RECIPES.push(...RECIPES_V4); }
 
-const VERSION = "5.5";
+const VERSION = "5.6";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -4472,7 +4474,7 @@ function openRecipe(id){
     </div>
     ${likeWho(r.id) ? `<div class="tiny muted b" style="margin-top:7px;text-align:center">${esc(likeWho(r.id))}${likeBy(r.id)!==S.active ? " — un avis retire ou remonte le plat pour vous deux" : ""}</div>` : ""}
     ${(S.myRecipes||[]).some(x=>x.id===r.id) ? `<button class="btn g sm w press" style="margin-top:9px" onclick="closeModal('m-recipe');openMyRecipe('${r.id}')">Modifier cette recette</button>` : ""}
-    <button class="btn w press" style="margin-top:12px" onclick="openPlan('${r.id}')">Programmer ce plat sur les 15 jours</button>
+    <button class="btn w press" style="margin-top:12px" onclick="openPlan('${r.id}')">Programmer ce plat — pour ${nb} personne${nb>1?"s":""}</button>
     <div class="h2" style="margin-top:16px">Ce que j'ai mangé</div>
     ${recipeWeight(r) ? `
       <div class="tiny muted b" style="margin-bottom:8px">Combien en as-tu pris ? Le plus simple : une fraction d'assiette. Si tu as pesé, mets les grammes.</div>
@@ -4499,7 +4501,7 @@ function openRecipe(id){
       <button class="btn g sm press" onclick="logRecipe('${r.id}','dej')">…ce midi</button>
     </div>
     ${plannedDays(r.id).length ? `<div class="tiny muted b" style="margin-top:9px">Déjà au menu : ${plannedDays(r.id).map(x=>esc(x)).join(" · ")}</div>` : ""}
-    <div class="tiny muted b" style="margin-top:9px">Programmer = l'inscrire au menu d'un jour et envoyer ses ingrédients dans la liste de courses, multipliés par le nombre de personnes à table. « Je l'ai mangé » ajoute le poids indiqué ci-dessus à ton journal ; le « ⋯ » de la ligne permet encore de le corriger après coup.</div>`;
+    <div class="tiny muted b" style="margin-top:9px">Programmer = l'inscrire au menu d'un jour et envoyer ses ingrédients dans la liste de courses, multipliés par le <b>×${nb}</b> choisi plus haut. Ce nombre reste modifiable jour par jour dans l'onglet Menus. « Je l'ai mangé » ajoute le poids indiqué ci-dessus à ton journal ; le « ⋯ » de la ligne permet encore de le corriger après coup.</div>`;
   if(recipeWeight(r)) rsPreview(r.id);
   openModal("m-recipe");
 }
@@ -4787,11 +4789,13 @@ function logIdea(){
 
 /* ===================== PROGRAMMER UN PLAT ===================== */
 let planId = null;
+let planServ = 0;
 function openPlan(id){
   planId = id;
+  planServ = rServ || foyer();        /* le ×N de la fiche, tel qu'il est affiché */
   const r = recipeById(id);
   closeModal("m-recipe");
-  document.getElementById("plansub").textContent = r.n;
+  document.getElementById("plansub").textContent = r.n + " — pour " + planServ + " personne" + (planServ>1?"s":"");
   renderPlanDays();
   openModal("m-plan");
 }
@@ -4811,10 +4815,14 @@ function renderPlanDays(){
 }
 function setPlan(i,slot){
   const d = S.menus.days[i];
-  d[slot] = (d[slot]===planId) ? null : planId;
-  save(false); renderPlanDays(); renderMenus(); renderToday();
+  const pose = d[slot] !== planId;
+  d[slot] = pose ? planId : null;
+  /* Le ×N choisi sur la fiche est ce que l'on va cuisiner : il part avec le plat
+     et c'est lui qui déterminera les quantités à acheter. */
+  if(pose && planServ >= 1) d[slot + "N"] = planServ;
+  save(false); renderPlanDays(); renderMenus(); renderToday(); renderShop();
   const r = recipeById(planId);
-  toast(d[slot] ? `${r.n} — ${slot==="din"?"soir":"midi"} du ${fmtShort(d.d)}` : "Retiré du menu");
+  toast(pose ? `${r.n} — ${slot==="din"?"soir":"midi"} du ${fmtShort(d.d)}, pour ${nbOf(d,slot)}` : "Retiré du menu");
 }
 
 /* ===================== MENUS & COURSES ===================== */
@@ -4890,6 +4898,33 @@ function rollMenus(){
 }
 function setMenu(i,slot,id){ S.menus.days[i][slot]=id||null; save(false); renderMenus(); }
 
+/* ===================== v5.6 — pour combien de personnes ? =====================
+   Vincent : « il faut que les quantités pour les courses soient adaptées au nombre
+   de personnes sélectionnées dans la recette ».
+
+   Le nombre de convives vivait à DEUX endroits qui ne se parlaient pas : le
+   réglage global « à table le soir », qui pilotait les courses, et le sélecteur
+   ×1…×8 de la fiche recette, purement décoratif. Il appartient en réalité au
+   repas programmé : le dimanche on est six, le mardi deux. Il se range donc avec
+   le plat, jour par jour et créneau par créneau. */
+function nbOf(d, slot){
+  const n = d && d[slot + "N"];
+  return (n >= 1 && n <= 12) ? n : (slot === "din" ? foyer() : 1);
+}
+function setSlotN(i, slot, n){
+  const d = S.menus.days[i]; if(!d) return;
+  d[slot + "N"] = Math.min(12, Math.max(1, n|0));
+  save(false); renderMenus(); renderShop(); renderTop();
+}
+/* Une tape fait tourner les valeurs courantes : c'est le geste le plus rapide
+   sur un téléphone, et le nombre reste lisible en permanence. */
+function cycleSlotN(i, slot){
+  const suite = [1,2,3,4,5,6,8];
+  const cur = nbOf(S.menus.days[i], slot);
+  const j = suite.indexOf(cur);
+  setSlotN(i, slot, suite[(j < 0 ? 1 : j + 1) % suite.length]);
+}
+
 /* C7 : choisir un plat en le regardant, au lieu de faire tourner une molette. */
 let pdDay = 0, pdSlot = "din";
 function openPickDish(i, slot){
@@ -4939,7 +4974,9 @@ function renderMenus(){
   const t = todayKey(), p2 = S.profiles.p2, bud = p2.budget ? p2.budget.kcal : null;
   const slot = (i, key, lab, id, isLeft) => {
     const r = recipeById(id);
-    return `<div class="slot"><span class="lb">${lab}</span>
+    const n = nbOf(S.menus.days[i], key);
+    return `<div class="slot"><span class="lb">${lab}${r && !isLeft
+      ? ` <button class="nbp press" title="Pour combien de personnes" onclick="cycleSlotN(${i},'${key}')">×${n}</button>` : ""}</span>
       <button class="slotbtn press" onclick="openPickDish(${i},'${key}')">
         <span class="em">${r?emojiOf(r):"＋"}</span>
         <span class="nm">${r?esc(r.n):"À choisir"}</span>
@@ -4966,7 +5003,7 @@ function renderMenus(){
       <div class="dn">${parseKey(d.d).toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")}<small>${fmtShort(d.d)}</small>${chip?`<div style="margin-top:5px">${chip}</div>`:""}</div>
       <div style="flex:1;min-width:0">
         ${slot(i,"dej",d.leftover?"Reste de la veille":"Déj. maison",d.dej,d.leftover)}
-        ${slot(i,"din","Dîner ×"+foyer(),d.din)}
+        ${slot(i,"din","Dîner",d.din)}
       </div>
     </div>`;
   }).join("");
@@ -5021,11 +5058,16 @@ function shopList(){
   const out = [];
   if(S.menus){
     const agg = {};
-    for(const d of scopeDays()){
-      const add = (id,n)=>{ const r=recipeById(id); if(!r) return; for(const [nom,q,u] of r.ing){ const k=nom+"|"+u; agg[k]=agg[k]||{n:nom,u,q:0}; agg[k].q+=q*n; } };
-      /* Le soir, tout le foyer est à table ; le midi, seule Anaïs mange à la maison. */
-      add(d.din, foyer());
-      if(!d.leftover) add(d.dej, 1);    /* un reste ne se rachète pas : il est déjà dans le dîner de la veille */
+    const jours = scopeDays();
+    for(let i = 0; i < jours.length; i++){
+      const d = jours[i];
+      const add = (id,n)=>{ const r=recipeById(id); if(!r || !(n>0)) return; for(const [nom,q,u] of r.ing){ const k=nom+"|"+u; agg[k]=agg[k]||{n:nom,u,q:0}; agg[k].q+=q*n; } };
+      /* Un dîner qui nourrit le déjeuner du lendemain doit être cuisiné en plus
+         grande quantité : avant, ces portions-là n'étaient achetées par personne. */
+      const suiv = jours[i+1];
+      const reste = (suiv && suiv.leftover && suiv.dej === d.din) ? nbOf(suiv, "dej") : 0;
+      add(d.din, nbOf(d, "din") + reste);
+      if(!d.leftover) add(d.dej, nbOf(d, "dej"));
     }
     for(const x of Object.values(agg)){
       if(inPantry(x.n)) continue;
