@@ -1080,13 +1080,14 @@ Ajouter le poulet et les épices."></textarea></div>
 <script>
 // [nom, catégorie, kcal/100g, protéines/100g, fibres/100g, unité, grammes par unité, libre, sucres/100g, graisses saturées/100g, sucres intrinsèques (fruit, légume, laitage nature) → non pénalisés]
 /* ===================== LA BASE D'ALIMENTS =====================
-   v5.9 — 215 des 308 aliments portent désormais les valeurs officielles de la
+   v5.10 — 217 des 308 aliments portent désormais les valeurs officielles de la
    table CIQUAL 2020 de l'ANSES (ciqual.anses.fr), reprises aliment par aliment
    avec un appariement explicite. Écart médian avec nos anciennes estimations :
-   5,7 %. Les 93 autres n'ont pas d'équivalent dans Ciqual : 52 plats de
-   restaurant et 24 marques (ces dernières relevées sur Open Food Facts), plus
-   sept lignes où Ciqual décrit un autre aliment que le nôtre — elles sont
-   nommées dans le document de projet, avec la raison.
+   5,4 %. Les 91 autres n'ont pas d'équivalent dans Ciqual : 52 plats de
+   restaurant, 24 marques (ces dernières relevées sur Open Food Facts), huit
+   aliments absents de la table, plus sept lignes où Ciqual décrit un autre
+   aliment que le nôtre — elles sont nommées dans le document de projet, avec
+   la raison.
 
    Format : [nom, catégorie, kcal/100 g, protéines, fibres, unité, g par unité,
              libre, sucres/100 g, saturées/100 g, sucres intrinsèques]
@@ -1142,7 +1143,7 @@ const FOODS = [
 ["Pâtes cuites","Féculents",126,4.4,1.9,"portion",180,0,0.6,0.11,0],
 ["Pâtes complètes cuites","Féculents",128,4.9,3.3,"portion",180,0,0.6,0.1,0],
 ["Pommes de terre vapeur","Féculents",80,1.8,1.8,"portion",200,0,0.9,0.09,0],
-["Purée maison","Féculents",105,2.2,1.6,"portion",200,0,1.5,1.5,0],
+["Purée maison","Féculents",89,1.87,1.5,"portion",200,0,1.41,1.46,0],
 ["Frites","Féculents",285,3.3,3.9,"portion",150,0,0.7,2.94,0],
 ["Quinoa cuit","Féculents",149,5,3.8,"portion",150,0,0.9,0.14,0],
 ["Semoule cuite","Féculents",122,3.8,1.9,"portion",150,0,3,0.25,0],
@@ -1364,7 +1365,7 @@ const FOODS = [
 ["Foie de veau poêlé","Protéines",121,19,0,"tranche",120,0,0,0.98,0],
 ["Boudin noir","Protéines",313,12.2,1.4,"portion",120,0,1.1,9.57,0],
 ["Andouillette","Protéines",303,24.5,0.5,"pièce",130,0,0.1,11.1,0],
-["Bar / dorade","Protéines",100,21,0,"filet",140,0,0,0.5,0],
+["Bar / dorade","Protéines",148,22.9,0,"filet",140,0,0,1.29,0],
 ["Truite","Protéines",183,26.6,0,"filet",130,0,0,1.47,0],
 ["Sole / limande","Protéines",90,17.4,0,"filet",150,0,0,0.12,0],
 ["Lotte","Protéines",98,23,0,"médaillon",150,0,0,0.19,0],
@@ -1678,7 +1679,7 @@ const RECIPES_V4 = [
 {id:"a23",n:"Pâtes au pesto, dinde grillée et courgettes",t:25,cat:"dej",tags:["poêle","volaille","rapide"],e:"🍝",nut:[488,51,4,4.7,1.7,2],
  ing:[["Escalope de dinde",140,"g"],["Pâtes (sèches)",70,"g"],["Courgette",150,"g"],["Pesto",15,"g"],["Sel, poivre, basilic",1,"pincée"]],
  steps:["Cuire les pâtes 9 min dans l'eau bouillante salée.","Griller l'escalope de dinde 4 min par face puis la trancher en lanières.","Faire sauter la courgette en rondelles 6 min dans la même poêle.","Mélanger pâtes, courgettes et dinde avec le pesto et une cuillère d'eau de cuisson."]},
-{id:"a24",n:"Pain de viande de dinde aux carottes, purée maison",t:55,cat:"diner",tags:["four","volaille","se congèle","reste pour le lendemain"],e:"🥔",nut:[557,36,7,11.6,6.9,5.6],
+{id:"a24",n:"Pain de viande de dinde aux carottes, purée maison",t:55,cat:"diner",tags:["four","volaille","se congèle","reste pour le lendemain"],e:"🥔",nut:[531,36,7,11.5,6.9,5.5],
  ing:[["Dinde hachée",150,"g"],["Carotte",1,"pièce"],["Œuf",0.5,"pièce"],["Chapelure",2,"c. à s."],["Purée maison",160,"g"],["Huile d'olive",5,"g"],["Sel, poivre, herbes, muscade",1,"pincée"]],
  steps:["Râper la carotte et la mélanger à la dinde hachée avec l'œuf, la chapelure, les herbes et la muscade.","Tasser la préparation dans un petit moule huilé.","Enfourner 40 min à 180 °C jusqu'à ce que le centre soit ferme.","Laisser tiédir 5 min, trancher et servir avec la purée réchauffée."]},
 {id:"a25",n:"Tartine gratinée poulet-champignons, salade verte",t:25,cat:"dej",tags:["four","volaille","rapide"],e:"🥪",nut:[551,53,9,4.5,7.7,2.4],
@@ -1693,7 +1694,7 @@ const RECIPES_V4 = [
 {id:"b03",n:"Saumon poêlé, fenouil fondant et quinoa",t:30,cat:"diner",tags:["poêle","poisson","rapide"],e:"🍣",nut:[575,39,9,5.6,4.5,1],
  ing:[["Saumon",125,"g"],["Fenouil",1,"pièce"],["Quinoa (sec)",60,"g"],["Citron",20,"g"],["Huile d'olive",6,"g"],["Sel, poivre, ail, herbes",1,"pincée"]],
  steps:["Émincer le fenouil et le faire fondre 12 min à couvert dans une poêle avec l'huile et 3 cuillères d'eau.","Rincer le quinoa et le cuire 12 min dans deux fois son volume d'eau bouillante salée.","Saisir le pavé de saumon côté peau 4 min, puis 3 min sur l'autre face.","Déglacer le fenouil au jus de citron et servir le tout ensemble."]},
-{id:"b04",n:"Dorade au four, poivrons et pommes de terre",t:35,cat:"diner",tags:["four","poisson","été"],e:"🐟",nut:[464,41,7,8.2,2.7,1.6],
+{id:"b04",n:"Dorade au four, poivrons et pommes de terre",t:35,cat:"diner",tags:["four","poisson","été"],e:"🐟",nut:[545,44,7,8.2,4,1.6],
  ing:[["Bar / dorade",170,"g"],["Poivron",1,"pièce"],["Tomate",100,"g"],["Pommes de terre vapeur",180,"g"],["Huile d'olive",10,"g"],["Sel, poivre, thym, ail",1,"pincée"]],
  steps:["Couper les poivrons en lanières et les tomates en quartiers, les mélanger à l'huile et aux aromates dans un plat.","Enfourner les légumes 15 min à 200 °C.","Ajouter les pommes de terre coupées en deux et la dorade sur le dessus, cuire encore 18 min à 200 °C.","Arroser du jus du plat au moment de servir."]},
 {id:"b05",n:"Lotte au lait de coco et curry, riz basmati",t:35,cat:"diner",tags:["mijoté","poisson","réconfort"],e:"🍛",nut:[579,46,5,10,5.1,1.3],
@@ -1798,7 +1799,7 @@ const RECIPES_V4 = [
 {id:"c13",n:"Salade froide de gigot, pois chiches et tomates",t:25,cat:"dej",tags:["froid","à emporter","reste pour le lendemain"],e:"🥗",nut:[513,44,15,7.1,4.7,0],
  ing:[["Gigot d'agneau rôti",110,"g"],["Pois chiches cuits",150,"g"],["Tomate",150,"g"],["Concombre",80,"g"],["Oignon rouge",30,"g"],["Huile d'olive",6,"g"],["Sel, poivre, citron, cumin, persil",1,"pincée"]],
  steps:["Détailler le gigot froid en fines lamelles.","Couper tomates et concombre en dés, émincer l'oignon rouge.","Mélanger avec les pois chiches rincés, l'huile, le jus de citron et le cumin.","Ajouter la viande, le persil et laisser reposer 10 min au frais."]},
-{id:"c14",n:"Foie de veau aux oignons, purée et épinards",t:20,cat:"diner",tags:["poêle","rapide","réconfort"],e:"🧅",nut:[482,37,7,7.1,5.3,2.7],
+{id:"c14",n:"Foie de veau aux oignons, purée et épinards",t:20,cat:"diner",tags:["poêle","rapide","réconfort"],e:"🧅",nut:[453,37,7,7,5.2,2.5],
  ing:[["Foie de veau poêlé",150,"g"],["Oignon",80,"g"],["Épinards",120,"g"],["Purée maison",180,"g"],["Huile d'olive",6,"g"],["Sel, poivre, vinaigre, persil",1,"pincée"]],
  steps:["Faire blondir les oignons émincés 8 min à feu moyen dans l'huile.","Ajouter un filet de vinaigre, réserver au chaud.","Poêler les tranches de foie 2 min par face à feu vif, saler et poivrer.","Faire tomber les épinards 3 min et servir avec la purée réchauffée."]},
 {id:"c15",n:"Endives au jambon gratinées",t:45,cat:"diner",tags:["four","réconfort","hiver"],e:"🧀",nut:[430,36,6,9.8,8.3,3.8],
@@ -1813,7 +1814,7 @@ const RECIPES_V4 = [
 {id:"c18",n:"Tartare de bœuf, salade et pommes de terre",t:15,cat:"dej",tags:["froid","sans cuisson","15 min"],e:"🥩",nut:[415,38,5,5.4,4.1,1.8],
  ing:[["Tartare de bœuf nature",150,"g"],["Échalote",20,"g"],["Salade verte",60,"g"],["Tomate",100,"g"],["Pommes de terre vapeur",150,"g"],["Moutarde",1.5,"c. à c."],["Huile d'olive",5,"g"],["Sel, poivre, ciboulette",1,"pincée"]],
  steps:["Mélanger la viande avec l'échalote ciselée, la moutarde, sel et poivre.","Former un palet sur l'assiette et parsemer de ciboulette.","Assaisonner la salade et les tomates avec l'huile d'olive.","Servir avec les pommes de terre tièdes."]},
-{id:"c19",n:"Hachis parmentier de bœuf aux carottes",t:50,cat:"diner",tags:["four","se congèle","réconfort"],e:"🥔",nut:[587,44,8,13.3,10.1,3],
+{id:"c19",n:"Hachis parmentier de bœuf aux carottes",t:50,cat:"diner",tags:["four","se congèle","réconfort"],e:"🥔",nut:[555,43,8,13.2,10,2.8],
  ing:[["Steak haché 5 %",130,"g"],["Purée maison",200,"g"],["Carotte",1,"pièce"],["Oignon",0.5,"pièce"],["Tomates concassées",60,"g"],["Fromage râpé",15,"g"],["Huile d'olive",5,"g"],["Sel, poivre, thym, muscade",1,"pincée"]],
  steps:["Faire revenir oignon et carotte râpée 8 min à l'huile.","Ajouter la viande et les tomates concassées, assaisonner et cuire 10 min.","Répartir la viande dans un plat, couvrir de purée et parsemer de fromage râpé.","Enfourner 25 min à 200 °C jusqu'à coloration."]},
 {id:"c20",n:"Brochettes de porc au paprika, quinoa aux poivrons",t:40,cat:"both",tags:["four","été","à emporter"],e:"🍢",nut:[593,50,8,7.5,5.4,1.1],
@@ -1939,7 +1940,7 @@ const RECIPES_V4 = [
 {id:"e10",n:"Crevettes sautées à l'ail, légumes et riz",t:30,cat:"diner",tags:["poêle","poisson","rapide"],e:"🍤",nut:[563,38,7,6.4,2.2,0.4],
  ing:[["Crevettes",150,"g"],["Poêlée de légumes surgelés",200,"g"],["Riz blanc / basmati (sec)",70,"g"],["Huile d'olive",8,"g"],["Sauce soja",0.5,"c. à s."],["Ail, piment, persil",1,"pincée"]],
  steps:["Cuire le riz 11 min dans l'eau bouillante salée.","Sauter les légumes surgelés 8 min à feu vif dans la moitié de l'huile.","Ajouter l'ail haché, le piment et les crevettes, cuire 4 min en remuant.","Déglacer à la sauce soja, parsemer de persil et servir avec le riz."]},
-{id:"e11",n:"Steak haché, poêlée de légumes et purée",t:25,cat:"diner",tags:["poêle","rapide"],e:"🥩",nut:[557,42,9,9,7.6,3],
+{id:"e11",n:"Steak haché, poêlée de légumes et purée",t:25,cat:"diner",tags:["poêle","rapide"],e:"🥩",nut:[525,41,9,8.8,7.6,2.8],
  ing:[["Steak haché 5 %",130,"g"],["Poêlée de légumes surgelés",200,"g"],["Purée maison",200,"g"],["Huile d'olive",5,"g"],["Thym, sel, poivre",1,"pincée"]],
  steps:["Faire sauter les légumes surgelés 10 min à feu vif dans l'huile avec le thym.","Réchauffer la purée 3 min au micro-ondes en remuant à mi-parcours.","Saisir le steak 2 min par face dans une poêle très chaude, saler et poivrer à la fin."]},
 {id:"e12",n:"Jambon, fondue de poireaux et pommes de terre",t:25,cat:"diner",tags:["poêle","réconfort","rapide"],e:"🥓",nut:[440,31,8,10.3,5.6,4.1],
@@ -2219,7 +2220,7 @@ if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assig
    leur emoji dans le champ e, que emojiOf() sait lire. */
 if(typeof RECIPES_V4 !== "undefined"){ RECIPES.push(...RECIPES_V4); }
 
-const VERSION = "5.9";
+const VERSION = "5.10";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
