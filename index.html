@@ -2167,7 +2167,7 @@ if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assig
    leur emoji dans le champ e, que emojiOf() sait lire. */
 if(typeof RECIPES_V4 !== "undefined"){ RECIPES.push(...RECIPES_V4); }
 
-const VERSION = "5.6";
+const VERSION = "5.7";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
@@ -5102,8 +5102,24 @@ function renderShop(){
   const cnt = document.getElementById("shopcount"), bar = document.getElementById("shopbar");
   if(cnt) cnt.textContent = L.length ? `${taken} sur ${L.length} pris` : "Liste vide";
   if(bar) bar.style.width = (L.length ? taken/L.length*100 : 0) + "%";
+  /* v5.7 — ce texte était figé depuis la v3 : il annonçait « dîners pour deux »
+     même quand un dîner était programmé pour six. Il dit maintenant ce que la
+     liste contient vraiment, et signale les repas qu'elle laisse de côté. */
   const note = document.getElementById("shopnote");
-  if(note) note.textContent = "Dîners pour deux, déjeuners maison pour une. Hors petits-déjeuners et déjeuners dehors.";
+  if(note){
+    const dans = scopeDays().filter(d=>d.din||d.dej);
+    const nbs = [...new Set(dans.flatMap(d=>[d.din?nbOf(d,"din"):null, (d.dej&&!d.leftover)?nbOf(d,"dej"):null]).filter(Boolean))].sort((a,b)=>a-b);
+    const quant = !nbs.length ? ""
+      : nbs.length === 1 ? `Quantités pour ${nbs[0]} personne${nbs[0]>1?"s":""}. `
+      : `Quantités pour ${nbs.join(", ")} personnes selon le repas — le nombre se règle sur chaque créneau dans Menus. `;
+    /* Des plats programmés hors de la portée affichée : c'est la cause la plus
+       fréquente d'une liste qui paraît incomplète. */
+    const sc = shopScope();
+    const vus = new Set(scopeDays().map(d=>d.d));
+    const dehors = (S.menus ? S.menus.days : []).filter(d=>!vus.has(d.d) && (d.din||d.dej)).length;
+    const reste = dehors ? `${dehors} jour${dehors>1?"s":""} programmé${dehors>1?"s":""} ${sc==="w1"?"en semaine 2":"ailleurs"} ${dehors>1?"ne sont":"n'est"} pas dans cette liste — touche « 15 jours » en haut pour ${dehors>1?"les":"l'"}ajouter. ` : "";
+    note.textContent = quant + reste + "Hors petits-déjeuners et déjeuners dehors.";
+  }
 
   if(!L.length){
     host.innerHTML = `<div class="empty">Rien à acheter pour ${scopeLabel()}.<br>Programme des plats dans Cuisine, ou ajoute un article ci-dessus.</div>`;
