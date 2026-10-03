@@ -1200,6 +1200,45 @@ const FOODS = [
 ["Soupe + tartine","Dehors",60,3,1.5,"bol+pain",350,0,2,1,0],
 ["Dessert restaurant (tarte, mousse)","Dehors",320,4,1,"part",120,0,28,8,0],
 ["Fruit en dessert","Dehors",50,0.5,2,"pièce",150,1,10,0,1],
+
+/* v5.8 — Vincent : « je vais manger des moules frites avec sauce au chorizo ou au
+   roquefort, comment calculer ça ? » Au restaurant on ne pèse rien : on reconnaît
+   son assiette. Ces plats sont décrits entiers, garniture et sauce comprises. */
+["Moules marinières + frites","Dehors",202,10.4,1.5,"assiette",480,0,0.8,1.9,1],
+["Moules frites sauce roquefort/crème","Dehors",248,10.6,1.3,"assiette",520,0,1,6.2,1],
+["Moules frites sauce chorizo","Dehors",223,10.8,1.3,"assiette",520,0,1,4,1],
+["Moules marinières seules (1 kg)","Dehors",115,15.4,0.4,"assiette",260,0,0.8,1.2,1],
+["Entrecôte + frites","Dehors",244,12.8,0.9,"assiette",430,0,0.5,5.1,1],
+["Steak + frites","Dehors",205,12,1,"assiette",400,0,0.5,3,1],
+["Tartare de bœuf + frites","Dehors",207,11.9,1,"assiette",420,0,0.7,3.1,1],
+["Magret de canard + garniture","Dehors",237,11.8,1.3,"assiette",380,0,1.6,4.7,1],
+["Confit de canard, pommes sarladaises","Dehors",263,10.5,1.3,"assiette",400,0,0.8,6,1],
+["Cassoulet","Dehors",211,10,2.7,"assiette",450,0,1.1,4.4,1],
+["Tartiflette","Dehors",250,8.8,1.3,"assiette",400,0,1.5,7.5,1],
+["Raclette (assiette)","Dehors",244,11.1,0.9,"assiette",450,0,1.1,8.9,1],
+["Couscous royal","Dehors",173,9.1,1.8,"assiette",550,0,1.8,2.5,1],
+["Paella","Dehors",156,8.4,1.1,"assiette",450,0,1.3,1.3,1],
+["Choucroute garnie","Dehors",190,9,1.6,"assiette",500,0,1.2,4.4,1],
+["Saumon grillé + légumes","Dehors",149,11.4,1.4,"assiette",350,0,1.4,1.7,1],
+["Poisson grillé + riz","Dehors",138,10.5,0.8,"assiette",400,0,0.5,1,1],
+["Poulet rôti + frites","Dehors",213,12.5,1,"assiette",400,0,0.5,3,1],
+["Salade de chèvre chaud","Dehors",194,6.9,1.6,"assiette",320,0,2.5,5.6,1],
+["Assiette de charcuterie","Dehors",347,18.7,0.7,"assiette",150,0,1.3,12,1],
+["Huîtres (12)","Dehors",83,10,0,"assiette",120,0,0.8,0.3,1],
+["Plateau de fruits de mer","Dehors",114,14.3,0.3,"assiette",350,0,0.9,0.6,1],
+["Omelette + salade","Dehors",150,9.3,1,"assiette",300,0,1,3,1],
+["Pâtes carbonara (restaurant)","Dehors",225,8,1,"assiette",400,0,1.3,5.5,1],
+["Lasagnes (restaurant)","Dehors",195,9.5,1.3,"assiette",400,0,2,4.5,1],
+["Risotto (restaurant)","Dehors",186,5.1,0.9,"assiette",350,0,1.1,4,1],
+["Burger seul (sans frites)","Dehors",261,13.9,1.3,"assiette",230,0,3.5,5.2,0],
+["Portion de frites (restaurant)","Dehors",280,3.5,3,"assiette",200,0,0.5,1.5,1],
+["Pain à table (2 tranches)","Dehors",267,8.3,3.3,"assiette",60,0,1.7,0.5,1],
+["Café gourmand","Dehors",253,3.3,1.3,"assiette",150,0,20,6,0],
+["Crème brûlée","Dehors",269,3.8,0,"assiette",130,0,19.2,10.8,0],
+["Fondant au chocolat","Dehors",350,5,2.5,"assiette",120,0,26.7,11.7,0],
+["Tiramisu","Dehors",269,4.6,0.8,"assiette",130,0,19.2,8.5,0],
+["Île flottante","Dehors",167,4.7,0,"assiette",150,0,18.7,2.7,0],
+["Profiteroles","Dehors",320,4.7,1.3,"assiette",150,0,20,10.7,0],
 ["Chips","Apéro & extras",530,6,4,"poignée",30,0,0.6,3.5,0],
 ["Cacahuètes salées","Apéro & extras",600,25,8,"poignée",30,0,4.5,7,0],
 ["Olives","Apéro & extras",150,1,3,"poignée",30,0,0.5,2,0],
@@ -2167,7 +2206,7 @@ if(typeof RECIPES_V3 !== "undefined"){ RECIPES.push(...RECIPES_V3); Object.assig
    leur emoji dans le champ e, que emojiOf() sait lire. */
 if(typeof RECIPES_V4 !== "undefined"){ RECIPES.push(...RECIPES_V4); }
 
-const VERSION = "5.7";
+const VERSION = "5.8";
 const KEY = "duo_v2";
 const MEALS = [["pdj","Petit-déjeuner"],["dej","Déjeuner"],["din","Dîner"],["ext","Extras & boissons"]];
 const ROLLOVER_MAX = 150;
